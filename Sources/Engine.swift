@@ -6,6 +6,7 @@ struct Job {
     let point: CGPoint
     let shot: Shot?          // nil ise demo kartı: hiçbir dosyaya dokunulmaz
     let thumb: CGImage?
+    var waypoint = false     // gezinti noktası: durmadan, kavis çizerek geçilir
 }
 
 enum Phase: Equatable {
@@ -37,9 +38,14 @@ final class RobotEngine {
     private(set) var current: Job?
 
     private var target: CGPoint = .zero
-    private var speed: CGFloat = 0
+    private var aim: CGPoint = .zero
+    private(set) var speed: CGFloat = 0
     private var phaseT: Double = 0
+    private var waypointT: Double = 0
     private var missionActive = false
+
+    /// Robot dosyanın üstüne çıkmaz, önünde durup onu içine çeker.
+    static let standoff: CGFloat = 84
 
     private let lowBattery = 15.0
     private let resumeBattery = 60.0
@@ -87,11 +93,11 @@ final class RobotEngine {
         case .scanning:
             if phaseT >= 1.5 { advance() }
         case .turning:
-            if rotate(toward: angle(to: target), dt) { setPhase(.driving) }
+            if rotate(toward: angle(to: aim), dt) { setPhase(.driving) }
         case .driving:
-            drive(dt)
+            if current?.waypoint == true { cruise(dt) } else { drive(dt) }
         case .vacuuming:
-            if phaseT >= 1.15 { current = nil; advance() }
+            if phaseT >= 1.4 { current = nil; advance() }
         case .dumping:
             if phaseT >= 1.4 { carrying = 0; advance() }
         case .aligning:
@@ -118,18 +124,30 @@ final class RobotEngine {
         } else if jobs.isEmpty || battery < lowBattery {
             go(.base, CGPoint(x: basePoint.x + 92, y: basePoint.y))
         } else {
-            let i = jobs.indices.min { dist(jobs[$0].point) < dist(jobs[$1].point) }!
-            current = jobs.remove(at: i)
-            go(.job, current!.point)
+            let i = jobs[0].waypoint ? 0 : jobs.indices.min { dist(jobs[$0].point) < dist(jobs[$1].point) }!
+            let job = jobs.remove(at: i)
+            current = job
+            go(.job, job.point, stopShort: !job.waypoint)
         }
     }
 
-    private func go(_ l: Leg, _ p: CGPoint) {
+    private func go(_ l: Leg, _ p: CGPoint, stopShort: Bool = false) {
         leg = l
+        aim = p
         target = p
+        if stopShort {
+            let d = dist(p)
+            target = d > Self.standoff
+                ? CGPoint(x: p.x - (p.x - pos.x) / d * Self.standoff, y: p.y - (p.y - pos.y) / d * Self.standoff)
+                : pos
+        }
         speed = 0
+        waypointT = 0
         setPhase(.turning)
     }
+
+    /// Çarpınca robot bir an yavaşlar.
+    func bumped() { speed *= 0.45 }
 
     private func arrive() {
         speed = 0
@@ -175,10 +193,41 @@ final class RobotEngine {
         heading = atan2(dy, dx)
     }
 
-    private func rotate(toward a: CGFloat, _ dt: Double) -> Bool {
-        var diff = (a - heading).truncatingRemainder(dividingBy: 2 * .pi)
+    /// Gezintide noktalar arasında durmadan, direksiyon kırarak ilerler.
+    private func cruise(_ dt: Double) {
+        waypointT += dt
+        if dist(target) < 52 || waypointT > 7 {
+            if let next = jobs.first, next.waypoint, battery >= lowBattery {
+                current = jobs.removeFirst()
+                target = next.point
+                aim = next.point
+                waypointT = 0
+            } else {
+                current = nil
+                advance()
+            }
+            return
+        }
+        let diff = shortest(angle(to: target) - heading)
+        let turn = CGFloat(2.8 * dt)
+        heading += min(max(diff, -turn), turn)
+        let wanted = maxSpeed * (0.32 + 0.68 * max(0, cos(diff)))
+        let change = CGFloat((wanted > speed ? 420 : 600) * dt)
+        speed += min(max(wanted - speed, -change), change)
+        pos.x += cos(heading) * speed * CGFloat(dt)
+        pos.y += sin(heading) * speed * CGFloat(dt)
+        battery = max(0, battery - 0.3 * dt)
+    }
+
+    private func shortest(_ a: CGFloat) -> CGFloat {
+        var diff = a.truncatingRemainder(dividingBy: 2 * .pi)
         if diff > .pi { diff -= 2 * .pi }
         if diff < -.pi { diff += 2 * .pi }
+        return diff
+    }
+
+    private func rotate(toward a: CGFloat, _ dt: Double) -> Bool {
+        let diff = shortest(a - heading)
         let step = CGFloat(5.2 * dt)
         if abs(diff) <= step { heading = a; return true }
         heading += diff > 0 ? step : -step

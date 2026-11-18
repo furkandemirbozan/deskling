@@ -27,7 +27,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSDesktopFolderUsageDescription</key><string>Robot, masaüstündeki ekran görüntülerini bulmak için bu izne ihtiyaç duyar.</string>
-  <key>NSAppleEventsUsageDescription</key><string>Robot, ekran görüntülerinin masaüstündeki konumunu Finder'dan öğrenir.</string>
+  <key>NSAppleEventsUsageDescription</key><string>Robot, masaüstü simgelerinin konumunu Finder'dan öğrenir ve çarptığı simgeleri yana iter.</string>
 </dict></plist>
 PLIST
 

@@ -28,7 +28,10 @@ Masaüstün ekran görüntüleriyle dolduğunda robota çift tıkla. Robot istas
 - **Silmez, toplar:** Görüntüler istasyondaki kutuya, yani bir klasöre taşınır.
 - **Kutuya tıkla, klasörü aç:** İstasyondaki kutuya tek tıklayınca topladığı görüntüler Finder'da açılır.
 - **Denetim paneli:** Bulunan görüntüleri önizle, seç, kilitle ve geçmişten geri al.
-- **Canlı animasyonlar:** Dönen fırçalar, lidar, tarama dalgaları, spiral emiş ve kutuya uçan görüntüler.
+- **Canlı animasyonlar:** Dönen fırçalar, lidar, tarama dalgaları ve kutuya uçan görüntüler.
+- **İçine çekerek alır:** Robot dosyanın önünde durur, dosya uzayıp küçülerek ağzından içeri girer.
+- **Çarptığını iter:** Yoluna çıkan dosya ve klasörler darbeyle yana kayar. Panelden kapatılabilir.
+- **Her gezinti farklı:** Temizlenecek bir şey yoksa zikzak, döngü, sekiz, spiral gibi değişen rotalarda gezer.
 - **Türk motifli halı:** Masaüstünde sürükle, köşesinden katla, dosyalarını altına süpür.
 - **Gerçekçi kar:** Pencerelerin üstünde ve ekranın altında birikir, pencere sallanınca veya kapanınca dökülür.
 - **Kar küreme aracı:** Zemin dolunca küçük bir kamyon gelip karı temizler.
@@ -174,9 +177,9 @@ open "/Applications/Robo Süpürge.app"
 | İzin | Neden gerekli? |
 | --- | --- |
 | **Masaüstü klasörü** | Ekran görüntülerini bulmak için |
-| **Finder otomasyonu** | Simgelerin masaüstündeki yerini öğrenmek için |
+| **Finder otomasyonu** | Simgelerin yerini öğrenmek ve çarpılan simgeleri kaydırmak için |
 
-Finder izni verilmezse robot simgelerin yerini macOS'un varsayılan yerleşimine göre tahmin eder.
+Finder izni verilmezse robot simgelerin yerini macOS'un varsayılan yerleşimine göre tahmin eder ve simgeleri itmez.
 
 ## Kullanım
 
@@ -196,6 +199,8 @@ Sources/
 ├── AppModel.swift   Uygulama durumu, tarama ve görev yönetimi
 ├── Core.swift       Algılama, dosya taşıma ve masaüstü geometrisi
 ├── Engine.swift     Robotun hareket motoru
+├── Motion.swift     Gezinti rotaları, simgelere çarpma ve içine çekme hareketi
+├── MotionCheck.swift Hareket testleri
 ├── Overlay.swift    Masaüstü sahnesi, tıklama alanları ve animasyonlar
 ├── RobotArt.swift   Kodla çizilen robot, istasyon ve uygulama simgesi
 ├── PanelView.swift  SwiftUI denetim paneli
@@ -237,9 +242,14 @@ Testler geçici klasörlerde çalışır, gerçek masaüstüne dokunmaz.
 "Robo Süpürge.app/Contents/MacOS/RoboSupurge" --snow-check
 ```
 
+```bash
+"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --motion-check
+```
+
 ## Bilinen sınırlar
 
 - Robot, halı ve kar yalnızca ana ekranda çalışır.
+- Masaüstünde "Izgaraya hizala" veya otomatik sıralama açıksa Finder itilen simgeleri kendi düzenine geri çekebilir.
 - Kar açıkken uygulama işlemcinin yaklaşık %8-10'unu kullanır.
 - Derleme betiği yalnızca Apple Silicon (arm64) için paket üretir.
 - Mac açılışında başlatma yalnızca `/Applications` klasöründeki kopyada çalışır.

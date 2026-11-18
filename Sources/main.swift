@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var status: NSStatusItem!
     private var rug: RugController!
     private var rugCheck: RugCheck?
+    private var motionCheck: MotionCheck?
     private var snow: SnowController?
 
     func applicationDidFinishLaunching(_ note: Notification) {
@@ -19,6 +20,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let out = i + 1 < args.count ? URL(fileURLWithPath: args[i + 1]) : nil
             rugCheck = RugCheck(output: out)
             rugCheck?.run()
+            return
+        }
+        if let i = args.firstIndex(of: "--motion-check") {
+            motionCheck = MotionCheck(output: i + 1 < args.count ? URL(fileURLWithPath: args[i + 1]) : nil)
+            motionCheck?.run()
             return
         }
         if args.contains("--auto-check") {

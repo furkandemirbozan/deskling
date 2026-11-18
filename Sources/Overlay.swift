@@ -254,73 +254,161 @@ final class OverlayController {
         return l
     }
 
-    /// Dosya simgesi dönerek robotun içine çekilir.
-    func suck(_ job: Job) {
+    /// Dosya önce direnir, sonra uzayıp küçülerek robotun ağzından içeri çekilir.
+    func suck(_ job: Job, robot pos: CGPoint, heading: CGFloat) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
         if let card = demoCards.removeValue(forKey: job.id) { card.removeFromSuperlayer() }
-        let start = CGPoint(x: job.point.x, y: job.point.y + 4)
-        let l = imageLayer(job.thumb, at: start)
-        l.opacity = 0
-        root.insertSublayer(l, below: robot)
+        let duration = 1.3
+        let mouth = CGPoint(x: pos.x + cos(heading) * 34, y: pos.y + sin(heading) * 34)
+        let direction = atan2(mouth.y - job.point.y, mouth.x - job.point.x)
+        let swirl: CGFloat = Bool.random() ? 1 : -1
 
-        // Robot simgeye tam oturduğu için görsel önce dışarı süzülür, sonra spiral çizerek içeri girer.
-        let path = CGMutablePath()
-        path.move(to: CGPoint(x: start.x, y: start.y + 62))
-        for i in 1...28 {
-            let t = CGFloat(i) / 28
-            let a = .pi / 2 + t * 4.4 * .pi
-            let r = 62 * (1 - t)
-            path.addLine(to: CGPoint(x: start.x + cos(a) * r, y: start.y + sin(a) * r))
+        // Arkadan gelen iki soluk kopya, hızlanırken iz bırakır.
+        for echo in [2, 1, 0] {
+            let l = imageLayer(job.thumb, at: job.point)
+            l.opacity = 0
+            l.shadowOpacity = echo == 0 ? 0.35 : 0
+            root.insertSublayer(l, below: robot)
+            let steps = 48
+            var places: [NSValue] = [], shapes: [NSValue] = [], alphas: [Double] = []
+            for i in 0...steps {
+                let t = CGFloat(i) / CGFloat(steps)
+                let p = SuckMotion.pose(max(0, t - CGFloat(echo) * 0.035), from: job.point, to: mouth, swirl: swirl)
+                places.append(NSValue(point: p.position))
+                shapes.append(NSValue(caTransform3D: SuckMotion.transform(p, direction: direction)))
+                let trail: CGFloat = echo == 0 ? 1 : (t > SuckMotion.tug + 0.2 ? 0.34 / CGFloat(echo) : 0)
+                alphas.append(Double(p.opacity * trail))
+            }
+            let move = CAKeyframeAnimation(keyPath: "position"); move.values = places
+            let shape = CAKeyframeAnimation(keyPath: "transform"); shape.values = shapes
+            let fade = CAKeyframeAnimation(keyPath: "opacity"); fade.values = alphas
+            let g = CAAnimationGroup()
+            g.animations = [move, shape, fade]
+            g.duration = duration
+            g.timingFunction = CAMediaTimingFunction(name: .linear)
+            l.add(g, forKey: "fx")
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.05) { l.removeFromSuperlayer() }
         }
-        let move = CAKeyframeAnimation(keyPath: "position")
-        move.path = path
-        let scale = CAKeyframeAnimation(keyPath: "transform.scale")
-        scale.values = [1, 0.8, 0.08]; scale.keyTimes = [0, 0.55, 1]
-        let rot = CABasicAnimation(keyPath: "transform.rotation.z")
-        rot.fromValue = 0; rot.toValue = 3.5 * Double.pi
-        let fade = CAKeyframeAnimation(keyPath: "opacity")
-        fade.values = [1, 1, 0]; fade.keyTimes = [0, 0.88, 1]
-        let g = CAAnimationGroup()
-        g.animations = [move, scale, rot, fade]
-        g.duration = 1.05
-        g.timingFunction = CAMediaTimingFunction(name: .easeIn)
-        l.add(g, forKey: "fx")
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) { l.removeFromSuperlayer() }
 
-        // Robot emerken titrer
-        let shake = CAKeyframeAnimation(keyPath: "transform.scale")
-        shake.values = [1, 1.05, 0.98, 1.05, 0.98, 1]
-        shake.duration = 1.05
-        robot.add(shake, forKey: "shake")
-        dust(around: job.point)
+        // Robot emerken titrer, dosya girince yutkunur.
+        let gulp = CAKeyframeAnimation(keyPath: "transform.scale")
+        gulp.values = [1, 1.03, 0.98, 1.03, 0.98, 1.02, 1.11, 0.95, 1]
+        gulp.keyTimes = [0, 0.14, 0.28, 0.42, 0.56, 0.72, 0.86, 0.94, 1]
+        gulp.duration = duration + 0.1
+        robot.add(gulp, forKey: "shake")
+        suctionRings(at: mouth, duration: duration)
+        dust(from: job.point, to: mouth, duration: duration)
     }
 
-    private func dust(around p: CGPoint) {
-        for i in 0..<14 {
+    /// Ağzın önünde içe doğru daralan hava halkaları.
+    private func suctionRings(at p: CGPoint, duration: Double) {
+        for i in 0..<4 {
+            let ring = CAShapeLayer()
+            ring.path = CGPath(ellipseIn: CGRect(x: -34, y: -34, width: 68, height: 68), transform: nil)
+            ring.fillColor = nil
+            ring.strokeColor = NSColor(white: 1, alpha: 0.6).cgColor
+            ring.lineWidth = 1.5
+            ring.position = p
+            ring.opacity = 0
+            root.insertSublayer(ring, below: robot)
+            let scale = CABasicAnimation(keyPath: "transform.scale")
+            scale.fromValue = 2.3; scale.toValue = 0.15
+            let fade = CAKeyframeAnimation(keyPath: "opacity")
+            fade.values = [0, 0.8, 0]
+            let g = CAAnimationGroup()
+            g.animations = [scale, fade]
+            g.duration = 0.55
+            g.beginTime = CACurrentMediaTime() + Double(i) * (duration - 0.55) / 3
+            g.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            ring.add(g, forKey: nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.2) { ring.removeFromSuperlayer() }
+        }
+    }
+
+    /// Toz taneleri dosyanın çevresinden kopup ağza akar.
+    private func dust(from p: CGPoint, to mouth: CGPoint, duration: Double) {
+        for i in 0..<26 {
             let d = CALayer()
-            let r = CGFloat.random(in: 1.2...2.6)
-            d.bounds = CGRect(x: 0, y: 0, width: r * 2, height: r * 2)
-            d.cornerRadius = r
-            d.backgroundColor = NSColor(white: 0.82, alpha: 0.9).cgColor
-            let a = CGFloat(i) / 14 * 2 * .pi
-            let from = CGPoint(x: p.x + cos(a) * 82, y: p.y + sin(a) * 82)
-            d.position = p
+            let r = CGFloat.random(in: 1.1...2.5)
+            let a = CGFloat(i) / 26 * 2 * .pi
+            let reach = CGFloat.random(in: 34...92)
+            let from = CGPoint(x: p.x + cos(a) * reach, y: p.y + sin(a) * reach)
+            d.bounds = CGRect(x: 0, y: 0, width: r * 5, height: r * 1.6)
+            d.cornerRadius = r * 0.8
+            d.backgroundColor = NSColor(white: 0.86, alpha: 0.9).cgColor
+            d.position = mouth
             d.opacity = 0
-            root.insertSublayer(d, below: shadow)
+            d.transform = CATransform3DMakeRotation(atan2(mouth.y - from.y, mouth.x - from.x), 0, 0, 1)
+            root.insertSublayer(d, below: robot)
             let m = CABasicAnimation(keyPath: "position")
-            m.fromValue = NSValue(point: from); m.toValue = NSValue(point: p)
+            m.fromValue = NSValue(point: from); m.toValue = NSValue(point: mouth)
             let f = CAKeyframeAnimation(keyPath: "opacity")
-            f.values = [0, 1, 0]
+            f.values = [0, 1, 1, 0]
             let g = CAAnimationGroup()
             g.animations = [m, f]
-            g.duration = 0.65
-            g.beginTime = CACurrentMediaTime() + Double.random(in: 0...0.4)
+            g.duration = 0.6
+            g.beginTime = CACurrentMediaTime() + Double.random(in: 0...(duration - 0.6))
             g.timingFunction = CAMediaTimingFunction(name: .easeIn)
             d.add(g, forKey: nil)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { d.removeFromSuperlayer() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.2) { d.removeFromSuperlayer() }
         }
+    }
+
+    /// Robot bir simgeye vurduğunda çıkan darbe halkası, kıvılcımlar ve sarsıntı.
+    func impact(at p: CGPoint, angle: CGFloat) {
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        defer { CATransaction.commit() }
+        let ring = CAShapeLayer()
+        ring.path = CGPath(ellipseIn: CGRect(x: -16, y: -16, width: 32, height: 32), transform: nil)
+        ring.fillColor = nil
+        ring.strokeColor = NSColor(white: 1, alpha: 0.85).cgColor
+        ring.lineWidth = 2.5
+        ring.position = p
+        ring.opacity = 0
+        root.addSublayer(ring)
+        let grow = CABasicAnimation(keyPath: "transform.scale")
+        grow.fromValue = 0.4; grow.toValue = 2.4
+        let vanish = CABasicAnimation(keyPath: "opacity")
+        vanish.fromValue = 0.9; vanish.toValue = 0
+        let burst = CAAnimationGroup()
+        burst.animations = [grow, vanish]
+        burst.duration = 0.32
+        burst.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        ring.add(burst, forKey: nil)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { ring.removeFromSuperlayer() }
+
+        for i in 0..<8 {
+            let a = angle + (CGFloat(i) - 3.5) * 0.36 + CGFloat.random(in: -0.1...0.1)
+            let spark = CALayer()
+            spark.bounds = CGRect(x: 0, y: 0, width: 11, height: 2.2)
+            spark.cornerRadius = 1.1
+            spark.backgroundColor = NSColor(calibratedRed: 1, green: 0.86, blue: 0.45, alpha: 1).cgColor
+            spark.position = p
+            spark.opacity = 0
+            spark.transform = CATransform3DMakeRotation(a, 0, 0, 1)
+            root.addSublayer(spark)
+            let reach = CGFloat.random(in: 24...46)
+            let m = CABasicAnimation(keyPath: "position")
+            m.fromValue = NSValue(point: p)
+            m.toValue = NSValue(point: CGPoint(x: p.x + cos(a) * reach, y: p.y + sin(a) * reach))
+            let f = CABasicAnimation(keyPath: "opacity")
+            f.fromValue = 1; f.toValue = 0
+            let g = CAAnimationGroup()
+            g.animations = [m, f]
+            g.duration = 0.3
+            g.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            spark.add(g, forKey: nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.36) { spark.removeFromSuperlayer() }
+        }
+
+        let jolt = CAKeyframeAnimation(keyPath: "transform.rotation.z")
+        jolt.values = [0, 0.14, -0.09, 0.05, 0]
+        jolt.isAdditive = true
+        jolt.duration = 0.3
+        robot.add(jolt, forKey: "jolt")
     }
 
     /// Toplanan görüntüler robottan istasyondaki kutuya kavis çizerek uçar.

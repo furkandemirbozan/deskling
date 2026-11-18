@@ -298,6 +298,7 @@ struct SettingsTab: View {
             }
             Section {
                 Toggle("Mac açılınca başlat", isOn: $model.launchAtLogin)
+                Toggle("Çarptığı simgeleri itsin", isOn: $model.bumpIcons)
                 Toggle("Sesler", isOn: $model.sounds)
             }
         }

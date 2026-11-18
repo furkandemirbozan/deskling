@@ -29,6 +29,15 @@ final class AppModel: ObservableObject {
     @Published var minAge: Int { didSet { d.set(minAge, forKey: "minAge") } }
     @Published var sounds: Bool { didSet { d.set(sounds, forKey: "sounds") } }
     @Published var launchAtLogin: Bool { didSet { d.set(launchAtLogin, forKey: "launchAtLogin"); applyLoginItem() } }
+    @Published var bumpIcons: Bool { didSet { d.set(bumpIcons, forKey: "bumpIcons") } }
+
+    // Çarpma ve gezinti
+    let iconField = IconField()
+    private var planner = PatrolPlanner()
+    private(set) var lastPatrol: PatrolRoute?
+    /// Yalnızca gerçek masaüstünde Finder'a bağlanır; testler kendi sahte simgelerini verir.
+    var iconReader: ((@escaping ([String: CGPoint]) -> Void) -> Void)?
+    var iconSlider: ((IconSlide) -> Void)?
 
     let engine: RobotEngine
     var overlay: OverlayController?
@@ -128,7 +137,7 @@ final class AppModel: ObservableObject {
             ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("RoboSupurge/Halı Altı", isDirectory: true))
         d.register(defaults: ["mode": "automatic", "speed": 240.0, "capacity": 3, "minAge": 60, "sounds": true,
-                              "launchAtLogin": true, "rugVisible": true, "rugScale": 1.0,
+                              "launchAtLogin": true, "bumpIcons": true, "rugVisible": true, "rugScale": 1.0,
                               "snowEnabled": true, "snowIntensity": 0.5, "snowLimit": 1.0, "snowPlowEnabled": true])
         // Önceki sürümden gelenler de 1 saat kuralına geçsin.
         if !d.bool(forKey: "autoHourV1") {
@@ -142,6 +151,7 @@ final class AppModel: ObservableObject {
         minAge = d.integer(forKey: "minAge")
         sounds = d.bool(forKey: "sounds")
         launchAtLogin = d.bool(forKey: "launchAtLogin")
+        bumpIcons = d.bool(forKey: "bumpIcons")
         rugVisible = d.bool(forKey: "rugVisible")
         rugScale = d.double(forKey: "rugScale")
         snowEnabled = d.bool(forKey: "snowEnabled")
@@ -154,7 +164,44 @@ final class AppModel: ObservableObject {
         engine.capacity = capacity
         if let data = try? Data(contentsOf: historyURL),
            let list = try? JSONDecoder().decode([CleanRecord].self, from: data) { history = list }
+        if usesRealDesktop {
+            iconReader = { FinderIcons.read(completion: $0) }
+            iconSlider = { FinderIcons.slide($0) }
+        }
         wire()
+    }
+
+    // MARK: - Simgelere çarpma
+
+    /// Görev başında simgelerin yerini öğrenir; robot bu sırada yola çıkmış olabilir.
+    private func prepareIcons(skipping names: Set<String>) {
+        iconField.clear()
+        guard bumpIcons, !demoRunning, let iconReader else { return }
+        let s = DesktopMap.screen
+        let v = s.visibleFrame.offsetBy(dx: -s.frame.minX, dy: -s.frame.minY)
+        iconField.bounds = CGRect(x: v.minX + 56, y: v.minY + 56, width: v.width - 112, height: v.height - 106)
+        iconField.ignored = names
+        iconReader { [weak self] map in
+            guard let self, self.engine.isBusy else { return }
+            self.iconField.load(map)
+        }
+    }
+
+    private func knockIcons() {
+        guard bumpIcons, !demoRunning, engine.phase == .driving, !iconField.isEmpty else { return }
+        let b = engine.basePoint
+        var blocked = [CGRect(x: b.x - 130, y: b.y - 90, width: 280, height: 190)]
+        if let rug = rugFrameLocal() { blocked.append(rug) }
+        let slides = iconField.hit(robot: engine.pos, heading: engine.heading, speed: engine.speed,
+                                   now: CACurrentMediaTime(), blocked: blocked)
+        for s in slides {
+            let angle = atan2(s.to.y - s.from.y, s.to.x - s.from.x)
+            let contact = CGPoint(x: (engine.pos.x + s.from.x) / 2, y: (engine.pos.y + s.from.y) / 2)
+            iconSlider?(s)
+            overlay?.impact(at: contact, angle: angle)
+            engine.bumped()
+        }
+        if !slides.isEmpty { play("Morse") }
     }
 
     /// Yalnızca Uygulamalar klasöründeki kopya açılış öğesi olur.
@@ -201,7 +248,7 @@ final class AppModel: ObservableObject {
     private func pickup(_ job: Job) -> Bool {
         if job.id.hasPrefix("patrol-") { return false }   // tur noktası: alınacak bir şey yok
         guard let shot = job.shot else {   // demo kartı
-            overlay?.suck(job)
+            overlay?.suck(job, robot: engine.pos, heading: engine.heading)
             carried.append(job.thumb ?? RobotArt.demoCard(carried.count))
             play("Tink")
             picked += 1
@@ -213,7 +260,8 @@ final class AppModel: ObservableObject {
             saveHistory()
             shots.removeAll { $0.id == shot.id }
             selected.remove(shot.id)
-            overlay?.suck(job)
+            iconField.remove(shot.name)
+            overlay?.suck(job, robot: engine.pos, heading: engine.heading)
             carried.append(job.thumb ?? RobotArt.demoCard(carried.count))
             play("Tink")
             picked += 1
@@ -228,6 +276,7 @@ final class AppModel: ObservableObject {
 
     private func missionEnded() {
         overlay?.clearDemoCards()
+        iconField.clear()
         if demoRunning {
             message = "Demo bitti. Hiçbir dosyaya dokunulmadı."
             onDemoFinished?()
@@ -248,9 +297,11 @@ final class AppModel: ObservableObject {
         paused = engine.paused
         battery = Int(engine.battery.rounded())
         let remaining = engine.jobs.count + (engine.current == nil ? 0 : 1)
-        statusDetail = busy ? (remaining > 0 ? "\(remaining) görüntü kaldı" : "Görev tamamlanıyor") : "Hazır"
+        let roaming = engine.current?.waypoint == true
+        statusDetail = roaming ? "Temizlenecek bir şey yok" : busy ? (remaining > 0 ? "\(remaining) görüntü kaldı" : "Görev tamamlanıyor") : "Hazır"
         if engine.paused { statusTitle = "Duraklatıldı"; return }
         if engine.isCharging { statusTitle = "Şarj oluyor"; return }
+        if roaming { statusTitle = "Masaüstünde geziyor"; return }
         switch engine.phase {
         case .docked: statusTitle = "İstasyonda"
         case .scanning: statusTitle = "Masaüstü taranıyor"
@@ -283,6 +334,7 @@ final class AppModel: ObservableObject {
         let dt = min(now - lastTick, 0.05)
         lastTick = now
         engine.tick(dt)
+        knockIcons()
         overlay?.sync(engine)
         statusAccumulator += dt
         if statusAccumulator > 0.5 { statusAccumulator = 0; refreshStatus() }
@@ -316,12 +368,15 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Temizlenecek dosya yoksa robot masaüstünde bir tur atıp istasyona döner.
+    /// Temizlenecek dosya yoksa robot her seferinde farklı bir rotayla gezip istasyona döner.
     private func patrol() {
-        let size = DesktopMap.screen.frame.size
-        let spots = [(0.28, 0.62), (0.55, 0.72), (0.72, 0.42), (0.42, 0.34)]
-        engine.start(spots.enumerated().map { i, s in
-            Job(id: "patrol-\(i)", point: CGPoint(x: size.width * s.0, y: size.height * s.1), shot: nil, thumb: nil)
+        let s = DesktopMap.screen
+        let v = s.visibleFrame.offsetBy(dx: -s.frame.minX, dy: -s.frame.minY)
+        let route = planner.next(in: CGRect(x: v.minX + 120, y: v.minY + 120, width: v.width - 240, height: v.height - 230))
+        lastPatrol = route
+        prepareIcons(skipping: [])
+        engine.start(route.points.enumerated().map { i, p in
+            Job(id: "patrol-\(i)", point: p, shot: nil, thumb: nil, waypoint: true)
         })
         ensureRunning()
         refreshStatus()
@@ -367,6 +422,7 @@ final class AppModel: ObservableObject {
                 return
             }
             self.engine.start(jobs)
+            self.prepareIcons(skipping: Set(jobs.compactMap { $0.shot?.name }))
             self.ensureRunning()
             self.refreshStatus()
         }
