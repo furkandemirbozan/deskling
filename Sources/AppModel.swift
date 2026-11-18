@@ -360,9 +360,17 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// İzin penceresi yanıtlanana kadar robot donmasın diye klasör arka planda açılır.
     private func startWatching() {
-        let fd = open(desktop.path, O_EVTONLY)
-        guard fd >= 0 else { return }
+        let path = desktop.path
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let fd = open(path, O_EVTONLY)
+            guard fd >= 0 else { return }
+            DispatchQueue.main.async { self?.watch(fd) }
+        }
+    }
+
+    private func watch(_ fd: Int32) {
         let src = DispatchSource.makeFileSystemObjectSource(fileDescriptor: fd, eventMask: [.write, .rename, .delete], queue: .main)
         src.setEventHandler { [weak self] in
             guard let self else { return }
