@@ -271,6 +271,7 @@ struct SettingsTab: View {
                 Stepper("Hazne: \(model.capacity) görüntü", value: $model.capacity, in: 1...10)
             }
             Section {
+                Toggle("Mac açılınca başlat", isOn: $model.launchAtLogin)
                 Toggle("Sesler", isOn: $model.sounds)
             }
         }

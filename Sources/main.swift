@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import ServiceManagement
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var model: AppModel!
@@ -10,6 +11,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ note: Notification) {
         NSApp.applicationIconImage = RobotArt.appIcon(256)
         let args = CommandLine.arguments
+        if args.contains("--auto-check") {
+            runAutoCheck()
+            return
+        }
         if args.contains("--patrol-check") {
             runPatrolCheck()
             return
@@ -38,6 +43,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showPanel()
         return false
+    }
+
+    /// 1 saati geçen görüntülerin kendiliğinden toplandığını doğrular.
+    private func runAutoCheck() {
+        let fm = FileManager.default
+        let tmp = fm.temporaryDirectory.appendingPathComponent("robo-auto-\(UUID().uuidString)")
+        try? fm.createDirectory(at: tmp, withIntermediateDirectories: true)
+        let ages: [(String, Double)] = [("eski.png", 7200), ("kilitli.png", 7200), ("yeni.png", 3000)]
+        for (name, age) in ages {
+            let url = tmp.appendingPathComponent(name)
+            SelfTest.png(url, comment: "Screenshot")
+            try? fm.setAttributes([.creationDate: Date().addingTimeInterval(-age)], ofItemAtPath: url.path)
+        }
+        model = AppModel(desktopOverride: tmp)
+        model.silent = true
+        model.mode = .automatic
+        model.minAge = 60
+        model.protected = Set(ScreenshotDetector.scan(tmp).filter { $0.name == "kilitli.png" }.map(\.id))
+        let exists = { (n: String) in fm.fileExists(atPath: tmp.appendingPathComponent(n).path) }
+        model.onMissionFinished = { [self] in
+            let inBox = Set((try? fm.contentsOfDirectory(atPath: model.collectionDir.path)) ?? [])
+            let ok = !exists("eski.png") && exists("kilitli.png") && exists("yeni.png") && inBox == ["eski.png"]
+            try? fm.removeItem(at: tmp)
+            print(ok ? "OTOMATIK_GECTI kutu=\(inBox.sorted())" : "OTOMATIK_KALDI kutu=\(inBox.sorted())")
+            exit(ok ? 0 : 1)
+        }
+        overlay = OverlayController()
+        model.attach(overlay)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 120) { print("OTOMATIK_ZAMAN_ASIMI"); exit(2) }
     }
 
     /// Boş klasörde çift tıklamanın robotu tura çıkardığını doğrular.
@@ -183,6 +217,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 }
 
 let arguments = CommandLine.arguments
+if arguments.contains("--login-status") {
+    print("giris_durumu=\(SMAppService.mainApp.status.rawValue)")   // 0 kayıtsız, 1 etkin, 2 onay bekliyor, 3 bulunamadı
+    exit(0)
+}
 if arguments.contains("--self-test") {
     exit(SelfTest.run())
 }

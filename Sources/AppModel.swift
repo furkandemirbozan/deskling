@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import ServiceManagement
 
 enum CleanMode: String, CaseIterable, Identifiable {
     case approval, automatic
@@ -27,6 +28,7 @@ final class AppModel: ObservableObject {
     @Published var capacity: Int { didSet { d.set(capacity, forKey: "capacity"); engine.capacity = capacity } }
     @Published var minAge: Int { didSet { d.set(minAge, forKey: "minAge") } }
     @Published var sounds: Bool { didSet { d.set(sounds, forKey: "sounds") } }
+    @Published var launchAtLogin: Bool { didSet { d.set(launchAtLogin, forKey: "launchAtLogin"); applyLoginItem() } }
 
     let engine: RobotEngine
     var overlay: OverlayController?
@@ -76,12 +78,20 @@ final class AppModel: ObservableObject {
     init(desktopOverride: URL? = nil) {
         desktop = desktopOverride ?? FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
         usesRealDesktop = desktopOverride == nil
-        d.register(defaults: ["mode": "approval", "speed": 240.0, "capacity": 3, "minAge": 10, "sounds": true])
+        d.register(defaults: ["mode": "automatic", "speed": 240.0, "capacity": 3, "minAge": 60, "sounds": true,
+                              "launchAtLogin": true])
+        // Önceki sürümden gelenler de 1 saat kuralına geçsin.
+        if !d.bool(forKey: "autoHourV1") {
+            d.set(CleanMode.automatic.rawValue, forKey: "mode")
+            d.set(60, forKey: "minAge")
+            d.set(true, forKey: "autoHourV1")
+        }
         mode = CleanMode(rawValue: d.string(forKey: "mode") ?? "") ?? .approval
         speed = d.double(forKey: "speed")
         capacity = d.integer(forKey: "capacity")
         minAge = d.integer(forKey: "minAge")
         sounds = d.bool(forKey: "sounds")
+        launchAtLogin = d.bool(forKey: "launchAtLogin")
         protected = Set(d.stringArray(forKey: "protected") ?? [])
         engine = RobotEngine(base: DesktopMap.basePoint(), trash: DesktopMap.stationApproach())
         engine.maxSpeed = speed
@@ -91,8 +101,19 @@ final class AppModel: ObservableObject {
         wire()
     }
 
+    /// Yalnızca Uygulamalar klasöründeki kopya açılış öğesi olur.
+    private func applyLoginItem() {
+        guard usesRealDesktop, Bundle.main.bundlePath.hasPrefix("/Applications/") else { return }
+        do {
+            if launchAtLogin { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+        } catch {
+            message = "Mac açılışında başlatma ayarlanamadı: \(error.localizedDescription)"
+        }
+    }
+
     func attach(_ o: OverlayController) {
         overlay = o
+        applyLoginItem()
         o.hitView.onDoubleClick = { [weak self] in self?.cleanAllNow() }
         o.stationHitView.onClick = { [weak self] in self?.openCollection() }
         o.placeStation(base: engine.basePoint)

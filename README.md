@@ -22,6 +22,8 @@ Masaüstün ekran görüntüleriyle dolduğunda robota çift tıkla. Robot istas
 
 - **Masaüstünde yaşar:** Robot sol alt köşedeki istasyonunda durur. Masaüstü simgelerinin üstünde, açık pencerelerin arkasında kalır.
 - **Çift tıkla çalışır:** Robota çift tıklaman yeterli, onay sormaz.
+- **1 saat kuralı:** Masaüstünde 1 saati geçen ekran görüntülerini robot kendiliğinden toplar.
+- **Mac açılınca başlar:** Uygulamalar klasöründen çalışırken oturum açıldığında kendiliğinden gelir.
 - **Yalnızca gerçek ekran görüntülerini alır:** Dosya adına bakmaz, macOS'un ekran görüntüsü işaretini arar.
 - **Silmez, toplar:** Görüntüler istasyondaki kutuya, yani bir klasöre taşınır.
 - **Kutuya tıkla, klasörü aç:** İstasyondaki kutuya tek tıklayınca topladığı görüntüler Finder'da açılır.
@@ -41,7 +43,7 @@ Panele menü çubuğundaki yuvarlak simgeden ulaşırsın.
 | --- | --- |
 | **Bulunanlar** | Masaüstündeki ekran görüntülerini listeler. Seçtiklerini toplatır, kilitlediklerine robot dokunmaz. |
 | **Geçmiş** | Toplanan her dosyayı gösterir ve tek tıkla masaüstüne geri koyar. |
-| **Ayarlar** | Temizleme modu, robot hızı, hazne kapasitesi ve sesler. |
+| **Ayarlar** | Otomatik toplama süresi, robot hızı, hazne kapasitesi, açılışta başlatma ve sesler. |
 
 ## Nasıl çalışır?
 
@@ -160,8 +162,12 @@ Testler geçici klasörlerde çalışır, gerçek masaüstüne dokunmaz.
 "Robo Süpürge.app/Contents/MacOS/RoboSupurge" --patrol-check
 ```
 
+```bash
+"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --auto-check
+```
+
 ## Bilinen sınırlar
 
 - Robot yalnızca ana ekranda çalışır.
 - Derleme betiği yalnızca Apple Silicon (arm64) için paket üretir.
-- Uygulama Mac açılışında kendiliğinden başlamaz.
+- Mac açılışında başlatma yalnızca `/Applications` klasöründeki kopyada çalışır.
