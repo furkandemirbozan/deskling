@@ -8,7 +8,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 swiftc -O -swift-version 5 -target arm64-apple-macos13.0 \
-  -framework AppKit -framework SwiftUI -framework QuartzCore -framework CoreServices \
+  -framework AppKit -framework SwiftUI -framework QuartzCore -framework Metal -framework CoreServices \
   Sources/*.swift -o "$APP/Contents/MacOS/RoboSupurge"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'

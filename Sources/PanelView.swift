@@ -270,6 +270,19 @@ struct SettingsTab: View {
                 }
                 Stepper("Hazne: \(model.capacity) görüntü", value: $model.capacity, in: 1...10)
             }
+            Section("Kar") {
+                Toggle("Kar yağsın", isOn: $model.snowEnabled)
+                LabeledContent("Yoğunluk") {
+                    Slider(value: $model.snowIntensity, in: 0...1)
+                }
+                .disabled(!model.snowEnabled)
+                LabeledContent("Birikme sınırı") {
+                    Slider(value: $model.snowLimit, in: 0.4...1.6)
+                }
+                .disabled(!model.snowEnabled)
+                Toggle("Kar küreme aracı", isOn: $model.snowPlowEnabled)
+                    .disabled(!model.snowEnabled)
+            }
             Section("Halı") {
                 Toggle("Halıyı göster", isOn: $model.rugVisible)
                 LabeledContent("Boyut") {

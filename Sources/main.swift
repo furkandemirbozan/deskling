@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var status: NSStatusItem!
     private var rug: RugController!
     private var rugCheck: RugCheck?
+    private var snow: SnowController?
 
     func applicationDidFinishLaunching(_ note: Notification) {
         NSApp.applicationIconImage = RobotArt.appIcon(256)
@@ -43,6 +44,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         model.connectRug(rug)
         model.attach(overlay)
+        snow = SnowController()
+        model.connectSnow(snow!)
 
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         status.button?.image = NSImage(systemSymbolName: "circle.circle.fill", accessibilityDescription: "Robo Süpürge")
@@ -192,6 +195,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         add(menu, "Denetim Panelini Aç", #selector(showPanel))
         add(menu, "Toz Haznesini Aç", #selector(openBox))
+        add(menu, model.snowEnabled ? "Karı Durdur" : "Kar Yağdır", #selector(toggleSnow))
+        add(menu, model.snowPlowEnabled ? "Küreme Aracını Kapat" : "Küreme Aracını Aç", #selector(togglePlow))
         add(menu, "Halının Altını Aç", #selector(openRug))
         add(menu, model.rugVisible ? "Halıyı Gizle" : "Halıyı Göster", #selector(toggleRug))
         if model.busy {
@@ -225,6 +230,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func openBox() { model.openCollection() }
+    @objc func toggleSnow() { model.snowEnabled.toggle() }
+    @objc func togglePlow() { model.snowPlowEnabled.toggle() }
     @objc func openRug() { NSWorkspace.shared.open(model.rugStore.dir) }
     @objc func toggleRug() {
         model.rugVisible.toggle()
@@ -236,6 +243,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 }
 
 let arguments = CommandLine.arguments
+if arguments.contains("--snow-windows") {
+    print("takip_edilen_pencere=\(SnowController.visibleWindows().count)")
+    exit(0)
+}
+if let i = arguments.firstIndex(of: "--snow-check") {
+    exit(SnowCheck.run(output: i + 1 < arguments.count ? URL(fileURLWithPath: arguments[i + 1]) : nil))
+}
 if arguments.contains("--login-status") {
     print("giris_durumu=\(SMAppService.mainApp.status.rawValue)")   // 0 kayıtsız, 1 etkin, 2 onay bekliyor, 3 bulunamadı
     exit(0)

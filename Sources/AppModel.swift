@@ -72,6 +72,21 @@ final class AppModel: ObservableObject {
         }
     }
     private weak var rugControl: RugController?
+
+    // Kar
+    @Published var snowEnabled: Bool { didSet { d.set(snowEnabled, forKey: "snowEnabled"); snow?.setEnabled(snowEnabled) } }
+    @Published var snowIntensity: Double { didSet { d.set(snowIntensity, forKey: "snowIntensity"); snow?.setIntensity(snowIntensity) } }
+    @Published var snowLimit: Double { didSet { d.set(snowLimit, forKey: "snowLimit"); snow?.setLimit(snowLimit) } }
+    @Published var snowPlowEnabled: Bool { didSet { d.set(snowPlowEnabled, forKey: "snowPlowEnabled"); snow?.setPlowEnabled(snowPlowEnabled) } }
+    private var snow: SnowController?
+
+    func connectSnow(_ controller: SnowController) {
+        snow = controller
+        controller.setIntensity(snowIntensity)
+        controller.setLimit(snowLimit)
+        controller.setPlowEnabled(snowPlowEnabled)
+        controller.setEnabled(snowEnabled)
+    }
     private var rugCoverWork: DispatchWorkItem?
 
     /// Panel, menü ve halının sağ tık menüsü aynı ayarları kullanır.
@@ -113,7 +128,8 @@ final class AppModel: ObservableObject {
             ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("RoboSupurge/Halı Altı", isDirectory: true))
         d.register(defaults: ["mode": "automatic", "speed": 240.0, "capacity": 3, "minAge": 60, "sounds": true,
-                              "launchAtLogin": true, "rugVisible": true, "rugScale": 1.0])
+                              "launchAtLogin": true, "rugVisible": true, "rugScale": 1.0,
+                              "snowEnabled": true, "snowIntensity": 0.5, "snowLimit": 1.0, "snowPlowEnabled": true])
         // Önceki sürümden gelenler de 1 saat kuralına geçsin.
         if !d.bool(forKey: "autoHourV1") {
             d.set(CleanMode.automatic.rawValue, forKey: "mode")
@@ -128,6 +144,10 @@ final class AppModel: ObservableObject {
         launchAtLogin = d.bool(forKey: "launchAtLogin")
         rugVisible = d.bool(forKey: "rugVisible")
         rugScale = d.double(forKey: "rugScale")
+        snowEnabled = d.bool(forKey: "snowEnabled")
+        snowIntensity = d.double(forKey: "snowIntensity")
+        snowLimit = d.double(forKey: "snowLimit")
+        snowPlowEnabled = d.bool(forKey: "snowPlowEnabled")
         protected = Set(d.stringArray(forKey: "protected") ?? [])
         engine = RobotEngine(base: DesktopMap.basePoint(), trash: DesktopMap.stationApproach())
         engine.maxSpeed = speed

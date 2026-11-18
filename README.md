@@ -4,9 +4,9 @@
 
 # Robo Süpürge
 
-**Masaüstünde yaşayan, ekran görüntülerini toplayıp kutusuna taşıyan minik robot süpürge ve altına dosya saklayabildiğin Türk motifli halı.**
+**Masaüstünde yaşayan, ekran görüntülerini toplayıp kutusuna taşıyan minik robot süpürge altına dosya saklayabildiğin Türk motifli halı ve pencerelerinde biriken gerçekçi kar.**
 
-macOS · Swift · AppKit · SwiftUI · Core Animation
+macOS · Swift · AppKit · SwiftUI · Core Animation · Metal
 
 </div>
 
@@ -30,6 +30,8 @@ Masaüstün ekran görüntüleriyle dolduğunda robota çift tıkla. Robot istas
 - **Denetim paneli:** Bulunan görüntüleri önizle, seç, kilitle ve geçmişten geri al.
 - **Canlı animasyonlar:** Dönen fırçalar, lidar, tarama dalgaları, spiral emiş ve kutuya uçan görüntüler.
 - **Türk motifli halı:** Masaüstünde sürükle, köşesinden katla, dosyalarını altına süpür.
+- **Gerçekçi kar:** Pencerelerin üstünde ve ekranın altında birikir, pencere sallanınca veya kapanınca dökülür.
+- **Kar küreme aracı:** Zemin dolunca küçük bir kamyon gelip karı temizler.
 - **Pil ve şarj:** Pili azalan robot görevine ara verip istasyonda şarj olur, sonra kaldığı yerden devam eder.
 
 ## Türk motifli halı
@@ -58,6 +60,34 @@ Halının altına süpürülen dosyalar şu özel klasöre taşınır, robot bu 
 
 Halıyı bir ekran görüntüsünün üstüne çekmek de onu robottan korur. Bu koruma Finder'ın bildirdiği simge konumuna bağlıdır ve halı gizlenince kalkar. Kesin koruma için dosyayı halının altına süpür.
 
+## Kar
+
+Metal ile çizilen, ekrandaki gerçek pencereleri takip eden bir kar simülasyonu. Kar tıklamaları engellemez, Dock ve menü çubuğunun arkasından geçer.
+
+<div align="center">
+<img src="docs/images/kar.png" alt="Pencerelerin üstünde ve ekranın altında biriken kar">
+</div>
+
+| Olay | Kar ne yapar? |
+| --- | --- |
+| Yağış | Küçük taneler rüzgârla süzülür, havada değen taneler birleşip büyür |
+| Birikme | Pencerelerin üst kenarında ve ekranın altında topaklı bir örtü oluşur |
+| Yavaş taşıma | Kar pencerenin üstünde kalır |
+| Hızlı taşıma veya sallama | Kar kopar, topak topak dökülür |
+| Boyut değiştirme | Kenardan taşan kar düşer, kalanı yeni genişliğe oturur |
+| Kapatma veya Dock'a indirme | Pencerenin üstündeki karın tamamı aşağı düşer |
+| Sınıra ulaşma | Kar pencerede 16, zeminde 44 noktadan fazla yükselmez |
+
+### Kar küreme aracı
+
+<div align="center">
+<img src="docs/images/kureme.png" alt="Zemindeki karı temizleyen kar küreme aracı">
+</div>
+
+Zemin, birikme sınırının yarısına kadar dolunca turuncu bir kamyon ekrana girer. Karı bıçağıyla önüne katar, havaya savurur ve diğer uçtan çıkar. Her geçişten sonra en az bir dakika bekler.
+
+Karı ve küreme aracını menü çubuğundaki simgeden ya da **Ayarlar** sekmesinden açıp kapatabilirsin. Yoğunluk ve birikme sınırı da aynı sekmeden ayarlanır.
+
 ## Denetim paneli
 
 <div align="center">
@@ -70,7 +100,7 @@ Panele menü çubuğundaki yuvarlak simgeden ulaşırsın.
 | --- | --- |
 | **Bulunanlar** | Masaüstündeki ekran görüntülerini listeler. Seçtiklerini toplatır, kilitlediklerine robot dokunmaz. |
 | **Geçmiş** | Toplanan her dosyayı gösterir ve tek tıkla masaüstüne geri koyar. |
-| **Ayarlar** | Otomatik toplama süresi, robot hızı, hazne kapasitesi, halı boyutu, açılışta başlatma ve sesler. |
+| **Ayarlar** | Otomatik toplama süresi, robot hızı, hazne kapasitesi, kar, küreme aracı, halı boyutu, açılışta başlatma ve sesler. |
 
 ## Nasıl çalışır?
 
@@ -172,6 +202,9 @@ Sources/
 ├── Rug.swift        Halı penceresi, katlama ve halı altı klasörü
 ├── RugArt.swift     Kodla dokunan Türk motifli halı
 ├── RugCheck.swift   Halının uçtan uca testi
+├── Snow.swift       Kar penceresi, pencere takibi ve Metal çizimi
+├── SnowEngine.swift Kar fiziği ve kar küreme aracı
+├── SnowCheck.swift  Kar fiziği testleri
 └── SelfTest.swift   Otomatik testler
 build.sh             .app paketini derler ve imzalar
 ```
@@ -200,8 +233,13 @@ Testler geçici klasörlerde çalışır, gerçek masaüstüne dokunmaz.
 "Robo Süpürge.app/Contents/MacOS/RoboSupurge" --rug-check
 ```
 
+```bash
+"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --snow-check
+```
+
 ## Bilinen sınırlar
 
-- Robot yalnızca ana ekranda çalışır.
+- Robot, halı ve kar yalnızca ana ekranda çalışır.
+- Kar açıkken uygulama işlemcinin yaklaşık %8-10'unu kullanır.
 - Derleme betiği yalnızca Apple Silicon (arm64) için paket üretir.
 - Mac açılışında başlatma yalnızca `/Applications` klasöründeki kopyada çalışır.
