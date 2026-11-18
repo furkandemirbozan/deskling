@@ -54,6 +54,37 @@ final class AppModel: ObservableObject {
 
     private var carried: [CGImage] = []
 
+    // Halı
+    let rugStore: RugStore
+    var rugFrameLocal: () -> CGRect? = { nil }
+    var positionProvider: ([String], Bool, @escaping ([String: CGPoint]) -> Void) -> Void = { names, ask, done in
+        DesktopMap.positions(names: names, askFinder: ask, completion: done)
+    }
+    @Published var rugCovered: Set<String> = []
+    @Published var rugVisible: Bool { didSet { rugControl?.setVisible(rugVisible); rugMoved() } }
+    @Published var rugScale: Double {
+        didSet {
+            rugControl?.setScale(rugScale)
+            rugCoverWork?.cancel()
+            let work = DispatchWorkItem { [weak self] in self?.rugMoved() }
+            rugCoverWork = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
+        }
+    }
+    private weak var rugControl: RugController?
+    private var rugCoverWork: DispatchWorkItem?
+
+    /// Panel, menü ve halının sağ tık menüsü aynı ayarları kullanır.
+    func connectRug(_ rug: RugController) {
+        rugControl = rug
+        rugFrameLocal = { [weak rug] in rug?.frameLocal }
+        rug.view.onSetScale = { [weak self] in self?.rugScale = $0 }
+        rug.view.onHide = { [weak self] in self?.rugVisible = false }
+    }
+
+    /// Halının örtmediği, robotun görebildiği ekran görüntüleri.
+    var visibleShots: [Shot] { shots.filter { !rugCovered.contains($0.id) } }
+
     /// Robotun topladığı ekran görüntülerinin durduğu klasör.
     var collectionDir: URL {
         if !usesRealDesktop { return desktop.appendingPathComponent(".hazne", isDirectory: true) }
@@ -78,8 +109,11 @@ final class AppModel: ObservableObject {
     init(desktopOverride: URL? = nil) {
         desktop = desktopOverride ?? FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
         usesRealDesktop = desktopOverride == nil
+        rugStore = RugStore(dir: desktopOverride?.appendingPathComponent(".hali/Hali Alti", isDirectory: true)
+            ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("RoboSupurge/Halı Altı", isDirectory: true))
         d.register(defaults: ["mode": "automatic", "speed": 240.0, "capacity": 3, "minAge": 60, "sounds": true,
-                              "launchAtLogin": true])
+                              "launchAtLogin": true, "rugVisible": true, "rugScale": 1.0])
         // Önceki sürümden gelenler de 1 saat kuralına geçsin.
         if !d.bool(forKey: "autoHourV1") {
             d.set(CleanMode.automatic.rawValue, forKey: "mode")
@@ -92,6 +126,8 @@ final class AppModel: ObservableObject {
         minAge = d.integer(forKey: "minAge")
         sounds = d.bool(forKey: "sounds")
         launchAtLogin = d.bool(forKey: "launchAtLogin")
+        rugVisible = d.bool(forKey: "rugVisible")
+        rugScale = d.double(forKey: "rugScale")
         protected = Set(d.stringArray(forKey: "protected") ?? [])
         engine = RobotEngine(base: DesktopMap.basePoint(), trash: DesktopMap.stationApproach())
         engine.maxSpeed = speed
@@ -247,9 +283,9 @@ final class AppModel: ObservableObject {
         overlay?.pulse(at: engine.pos)
         scan { [weak self] in
             guard let self else { return }
-            let list = self.shots.filter { !self.protected.contains($0.id) }
+            let list = self.visibleShots.filter { !self.protected.contains($0.id) }
             if !list.isEmpty {
-                self.launch(list)
+                self.launch(list, manual: true)
             } else if (try? FileManager.default.contentsOfDirectory(atPath: self.desktop.path)) == nil {
                 self.message = "Masaüstü izni gerekli. Sistem Ayarları > Gizlilik ve Güvenlik > Dosyalar ve Klasörler bölümünden izin ver."
                 self.onNeedsPanel?()
@@ -271,20 +307,44 @@ final class AppModel: ObservableObject {
         refreshStatus()
     }
 
-    func cleanSelected() { launch(shots.filter { selected.contains($0.id) && !protected.contains($0.id) }) }
+    func cleanSelected() { launch(visibleShots.filter { selected.contains($0.id) && !protected.contains($0.id) }) }
 
-    private func launch(_ list: [Shot]) {
+    /// Halı taşındığında neyin örtüldüğünü yeniden hesaplar.
+    func rugMoved() { updateRugCover() }
+
+    private func updateRugCover() {
+        guard let rect = rugFrameLocal(), !shots.isEmpty else { rugCovered = []; evaluateAuto(); return }
+        let list = shots
+        positionProvider(list.map(\.name), usesRealDesktop) { [weak self] map in
+            guard let self else { return }
+            self.rugCovered = Set(list.filter { map[$0.name].map(rect.contains) ?? false }.map(\.id))
+            self.selected.subtract(self.rugCovered)
+            self.evaluateAuto()
+        }
+    }
+
+    private func launch(_ list: [Shot], manual: Bool = false) {
         guard !list.isEmpty, !engine.isBusy, !launching else { return }
         launching = true
         message = nil
         statusTitle = "Simgeler bulunuyor"
         busy = true
-        DesktopMap.positions(names: list.map(\.name), askFinder: usesRealDesktop) { [weak self] map in
+        positionProvider(list.map(\.name), usesRealDesktop) { [weak self] map in
             guard let self else { return }
             self.launching = false
+            let rugRect = self.rugFrameLocal()
             let jobs = list.compactMap { s -> Job? in
                 guard let p = map[s.name] else { return nil }
+                if rugRect?.contains(p) == true {   // son anda halının altında kaldıysa dokunma
+                    self.rugCovered.insert(s.id)
+                    return nil
+                }
                 return Job(id: s.id, point: p, shot: s, thumb: ScreenshotDetector.thumbnail(s.url))
+            }
+            guard !jobs.isEmpty else {
+                self.refreshStatus()
+                if manual { self.patrol() }
+                return
             }
             self.engine.start(jobs)
             self.ensureRunning()
@@ -354,7 +414,7 @@ final class AppModel: ObservableObject {
                 for s in found where !known.contains(s.id) && !self.protected.contains(s.id) { self.selected.insert(s.id) }
                 self.shots = found
                 self.thumbs = images
-                self.evaluateAuto()
+                self.updateRugCover()
                 done?()
             }
         }
@@ -388,6 +448,6 @@ final class AppModel: ObservableObject {
     private func evaluateAuto() {
         guard mode == .automatic, !engine.isBusy, !launching, !demoRunning else { return }
         let cutoff = Date().addingTimeInterval(-Double(minAge) * 60)
-        launch(shots.filter { !protected.contains($0.id) && !autoSkip.contains($0.id) && $0.created <= cutoff })
+        launch(visibleShots.filter { !protected.contains($0.id) && !autoSkip.contains($0.id) && $0.created <= cutoff })
     }
 }

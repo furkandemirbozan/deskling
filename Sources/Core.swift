@@ -91,7 +91,7 @@ enum CleanError: LocalizedError {
 
 enum Cleaner {
     /// Klasörde aynı adlı dosya varsa üzerine yazmamak için yeni bir ad bulur.
-    private static func uniqueURL(_ url: URL) -> URL {
+    static func uniqueURL(_ url: URL) -> URL {
         let fm = FileManager.default
         let base = url.deletingPathExtension().lastPathComponent
         let ext = url.pathExtension

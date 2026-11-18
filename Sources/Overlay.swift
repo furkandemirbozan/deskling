@@ -68,10 +68,10 @@ final class OverlayController {
         build()
     }
 
-    private var onTopLevel = NSWindow.Level(Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
+    private var onTopLevel = NSWindow.Level(Int(CGWindowLevelForKey(.desktopIconWindow)) + 2)
 
     func setOnTop(_ top: Bool) {
-        onTopLevel = top ? .floating : NSWindow.Level(Int(CGWindowLevelForKey(.desktopIconWindow)) + 1)
+        onTopLevel = top ? .floating : NSWindow.Level(Int(CGWindowLevelForKey(.desktopIconWindow)) + 2)
         window.level = onTopLevel
         hitWindow.level = onTopLevel
         stationWindow.level = onTopLevel

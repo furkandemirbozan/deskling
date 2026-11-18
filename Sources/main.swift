@@ -7,10 +7,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var overlay: OverlayController!
     private var panel: NSWindow?
     private var status: NSStatusItem!
+    private var rug: RugController!
+    private var rugCheck: RugCheck?
 
     func applicationDidFinishLaunching(_ note: Notification) {
         NSApp.applicationIconImage = RobotArt.appIcon(256)
         let args = CommandLine.arguments
+        if args.contains("--rug-check") {
+            let i = args.firstIndex(of: "--rug-check")!
+            let out = i + 1 < args.count ? URL(fileURLWithPath: args[i + 1]) : nil
+            rugCheck = RugCheck(output: out)
+            rugCheck?.run()
+            return
+        }
         if args.contains("--auto-check") {
             runAutoCheck()
             return
@@ -29,6 +38,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         model = AppModel()
         overlay = OverlayController()
+        rug = RugController(store: model.rugStore, restoreFallback: model.desktop, persist: true) { [weak self] in
+            self?.model.rugMoved()
+        }
+        model.connectRug(rug)
         model.attach(overlay)
 
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -179,6 +192,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         add(menu, "Denetim Panelini Aç", #selector(showPanel))
         add(menu, "Toz Haznesini Aç", #selector(openBox))
+        add(menu, "Halının Altını Aç", #selector(openRug))
+        add(menu, model.rugVisible ? "Halıyı Gizle" : "Halıyı Göster", #selector(toggleRug))
         if model.busy {
             add(menu, model.paused ? "Devam Et" : "Duraklat", #selector(pause))
             add(menu, "İstasyona Dön", #selector(home))
@@ -210,6 +225,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func openBox() { model.openCollection() }
+    @objc func openRug() { NSWorkspace.shared.open(model.rugStore.dir) }
+    @objc func toggleRug() {
+        model.rugVisible.toggle()
+    }
     @objc func pause() { model.togglePause() }
     @objc func home() { model.goHome() }
     @objc func clean() { model.cleanSelected() }

@@ -93,16 +93,16 @@ struct PanelView: View {
 struct FoundTab: View {
     @ObservedObject var model: AppModel
 
-    private var selectable: [Shot] { model.shots.filter { !model.protected.contains($0.id) } }
+    private var selectable: [Shot] { model.visibleShots.filter { !model.protected.contains($0.id) } }
     private var count: Int { model.selected.count }
 
     var body: some View {
         VStack(spacing: 0) {
-            if model.shots.isEmpty {
+            if model.visibleShots.isEmpty {
                 empty
             } else {
                 HStack {
-                    Text("\(model.shots.count) ekran görüntüsü").font(.callout).foregroundStyle(.secondary)
+                    Text("\(model.visibleShots.count) ekran görüntüsü").font(.callout).foregroundStyle(.secondary)
                     Spacer()
                     Button(count == selectable.count ? "Seçimi kaldır" : "Tümünü seç") {
                         model.selected = count == selectable.count ? [] : Set(selectable.map(\.id))
@@ -115,7 +115,7 @@ struct FoundTab: View {
                 Divider()
                 ScrollView {
                     LazyVStack(spacing: 0) {
-                        ForEach(model.shots) { shot in
+                        ForEach(model.visibleShots) { shot in
                             ShotRow(model: model, shot: shot)
                             Divider().padding(.leading, 104)
                         }
@@ -269,6 +269,19 @@ struct SettingsTab: View {
                     Slider(value: $model.speed, in: 120...480, step: 20)
                 }
                 Stepper("Hazne: \(model.capacity) görüntü", value: $model.capacity, in: 1...10)
+            }
+            Section("Halı") {
+                Toggle("Halıyı göster", isOn: $model.rugVisible)
+                LabeledContent("Boyut") {
+                    HStack(spacing: 10) {
+                        Slider(value: $model.rugScale, in: RugView.scaleRange, step: 0.1)
+                        Text("%\(Int((model.rugScale * 100).rounded()))")
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                            .frame(width: 44, alignment: .trailing)
+                    }
+                }
+                .disabled(!model.rugVisible)
             }
             Section {
                 Toggle("Mac açılınca başlat", isOn: $model.launchAtLogin)

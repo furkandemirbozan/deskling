@@ -4,7 +4,7 @@
 
 # Robo Süpürge
 
-**Masaüstünde yaşayan, ekran görüntülerini toplayıp kutusuna taşıyan minik robot süpürge.**
+**Masaüstünde yaşayan, ekran görüntülerini toplayıp kutusuna taşıyan minik robot süpürge ve altına dosya saklayabildiğin Türk motifli halı.**
 
 macOS · Swift · AppKit · SwiftUI · Core Animation
 
@@ -29,7 +29,34 @@ Masaüstün ekran görüntüleriyle dolduğunda robota çift tıkla. Robot istas
 - **Kutuya tıkla, klasörü aç:** İstasyondaki kutuya tek tıklayınca topladığı görüntüler Finder'da açılır.
 - **Denetim paneli:** Bulunan görüntüleri önizle, seç, kilitle ve geçmişten geri al.
 - **Canlı animasyonlar:** Dönen fırçalar, lidar, tarama dalgaları, spiral emiş ve kutuya uçan görüntüler.
+- **Türk motifli halı:** Masaüstünde sürükle, köşesinden katla, dosyalarını altına süpür.
 - **Pil ve şarj:** Pili azalan robot görevine ara verip istasyonda şarj olur, sonra kaldığı yerden devam eder.
+
+## Türk motifli halı
+
+Koçboynuzu bordürü, Selçuklu yıldızları ve basamaklı göbekleriyle tamamen kodla dokunan bir halı. Altına süpürdüğün her şey masaüstünden kaybolur ve robot onlara dokunamaz.
+
+| Örtülü | Köşesinden katlanmış |
+| :---: | :---: |
+| <img src="docs/images/hali.png" alt="Türk motifli halı"> | <img src="docs/images/hali-katli.png" alt="Köşesi katlanmış halı ve altındaki dosyalar"> |
+
+| Yapmak istediğin | Nasıl? |
+| --- | --- |
+| Halıyı taşı | Ortasından tutup sürükle |
+| Köşesini katla | Köşesini içeri doğru çek ya da köşeye tıkla |
+| Altına süpür | Dosya, klasör veya ekran görüntüsünü halının üstüne bırak |
+| Örtüp kapat | Katlanmış kısma tıkla |
+| Geri çıkar | Katlayıp dosyayı dışarı sürükle ya da sağ tıkla → **Masaüstüne Geri Çıkar** |
+| Boyutunu değiştir | Sağ tıkla → **Küçük / Orta / Büyük Halı** ya da **Ayarlar** → **Boyut** (%60–%160) |
+| Gizle veya göster | Sağ tıkla → **Halıyı Gizle** ya da menü çubuğundaki simge |
+
+Halının altına süpürülen dosyalar şu özel klasöre taşınır, robot bu klasöre hiç bakmaz:
+
+```text
+~/Library/Application Support/RoboSupurge/Halı Altı
+```
+
+Halıyı bir ekran görüntüsünün üstüne çekmek de onu robottan korur. Bu koruma Finder'ın bildirdiği simge konumuna bağlıdır ve halı gizlenince kalkar. Kesin koruma için dosyayı halının altına süpür.
 
 ## Denetim paneli
 
@@ -43,7 +70,7 @@ Panele menü çubuğundaki yuvarlak simgeden ulaşırsın.
 | --- | --- |
 | **Bulunanlar** | Masaüstündeki ekran görüntülerini listeler. Seçtiklerini toplatır, kilitlediklerine robot dokunmaz. |
 | **Geçmiş** | Toplanan her dosyayı gösterir ve tek tıkla masaüstüne geri koyar. |
-| **Ayarlar** | Otomatik toplama süresi, robot hızı, hazne kapasitesi, açılışta başlatma ve sesler. |
+| **Ayarlar** | Otomatik toplama süresi, robot hızı, hazne kapasitesi, halı boyutu, açılışta başlatma ve sesler. |
 
 ## Nasıl çalışır?
 
@@ -142,6 +169,9 @@ Sources/
 ├── Overlay.swift    Masaüstü sahnesi, tıklama alanları ve animasyonlar
 ├── RobotArt.swift   Kodla çizilen robot, istasyon ve uygulama simgesi
 ├── PanelView.swift  SwiftUI denetim paneli
+├── Rug.swift        Halı penceresi, katlama ve halı altı klasörü
+├── RugArt.swift     Kodla dokunan Türk motifli halı
+├── RugCheck.swift   Halının uçtan uca testi
 └── SelfTest.swift   Otomatik testler
 build.sh             .app paketini derler ve imzalar
 ```
@@ -164,6 +194,10 @@ Testler geçici klasörlerde çalışır, gerçek masaüstüne dokunmaz.
 
 ```bash
 "Robo Süpürge.app/Contents/MacOS/RoboSupurge" --auto-check
+```
+
+```bash
+"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --rug-check
 ```
 
 ## Bilinen sınırlar
