@@ -265,11 +265,12 @@ final class SnowEngine {
     var minimumTop: Float = 30
     var plowEnabled = false
 
-    private let groundBed: SnowBed
+    let groundBed: SnowBed
+    let sculpture = SnowSculpture()
     private(set) var ledges: [UInt32: SnowLedge] = [:]
-    private var dormant: [UInt32: SnowLedge] = [:]
-    private var order: [UInt32] = []
-    private(set) var particles: [Particle] = []
+    private(set) var dormant: [UInt32: SnowLedge] = [:]
+    private(set) var order: [UInt32] = []
+    var particles: [Particle] = []
     private(set) var melting = false
     private(set) var meltAlpha: Float = 1
     private(set) var lastMotion: Float = 1000
@@ -279,7 +280,7 @@ final class SnowEngine {
 
     private var plowWait: Float = 0
     private var nextPlowDir: Float = 1
-    private var time: Float = 0
+    private(set) var time: Float = 0
     private var spawnDebt: Float = 0
     private var seed: UInt32
     private var spaceHoldUntil: Float = -1
@@ -303,7 +304,7 @@ final class SnowEngine {
     var groundMass: Float { groundBed.mass }
     var ledgeMass: Float { ledges.values.reduce(0) { $0 + $1.mass } }
     var clumpCount: Int { particles.lazy.filter { $0.kind == .clump }.count }
-    var isFinished: Bool { melting && particles.isEmpty && groundMass < 0.5 && ledgeMass < 0.5 }
+    var isFinished: Bool { melting && particles.isEmpty && groundMass < 0.5 && ledgeMass < 0.5 && sculpture.balls.isEmpty && sculpture.heaps.isEmpty }
     var isMoving: Bool { lastMotion < 0.6 }
     var ledgeLimitNow: Float { Self.ledgeLimit * limit }
     var groundLimitNow: Float { Self.groundLimit * limit }
@@ -323,12 +324,12 @@ final class SnowEngine {
 
     // MARK: - Rastgelelik
 
-    private func random() -> Float {
+    func random() -> Float {
         seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5
         return Float(seed) / Float(UInt32.max)
     }
 
-    private func random(_ a: Float, _ b: Float) -> Float { a + (b - a) * random() }
+    func random(_ a: Float, _ b: Float) -> Float { a + (b - a) * random() }
 
     private func wave(_ i: Int, _ s: Float) -> Float {
         let x = Float(i)
@@ -513,7 +514,7 @@ final class SnowEngine {
         }
     }
 
-    private func emitClump(area: Float, x: Float, y: Float, vx: Float, vy: Float) {
+    func emitClump(area: Float, x: Float, y: Float, vx: Float, vy: Float) {
         guard area > 0.01 else { return }
         if particles.count >= Self.maxParticles {
             _ = scatter(area: area, x: x, spread: 6, bed: groundBed, originX: 0)
@@ -557,6 +558,7 @@ final class SnowEngine {
         p.wheel += step / 11
         let bladeAfter = p.x + p.dir * SnowPlow.bladeReach
         p.pushed += groundBed.scrape(from: bladeBefore, to: bladeAfter)
+        p.pushed += plowThroughSculpture(from: bladeBefore, to: bladeAfter, dir: p.dir, speed: p.speed)
 
         // Bıçağın önünde biriken kar yukarı ve ileri savrulur.
         p.sprayDebt += min(1, p.pushed / 500) * 46 * dt
@@ -608,6 +610,7 @@ final class SnowEngine {
             }
         }
         updatePlow(dt)
+        stepSculpture(dt)
 
         var i = 0
         while i < particles.count {
@@ -712,6 +715,7 @@ final class SnowEngine {
         if p.kind == .backdrop { return p.y < height + 6 }
         if p.kind == .powder { return p.y < height + 4 }
         guard p.vy > 0 else { return true }
+        if absorbIntoBall(p) { return false }   // kar topuna değen kar ona yapışır
 
         // Önce pencerelerin üst kenarları, sonra zemin
         let radius = p.kind == .clump ? p.r * 0.6 : 0
@@ -979,6 +983,8 @@ final class SnowEngine {
                 }
             }
         }
+
+        drawSculpture(into: out, count: &n, capacity: capacity, alpha: alpha)
 
         for p in particles {
             guard n + 42 < capacity else { break }

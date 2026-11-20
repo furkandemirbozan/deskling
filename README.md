@@ -35,6 +35,8 @@ Masaüstün ekran görüntüleriyle dolduğunda robota çift tıkla. Robot istas
 - **Türk motifli halı:** Masaüstünde sürükle, köşesinden katla, dosyalarını altına süpür.
 - **Gerçekçi kar:** Pencerelerin üstünde ve ekranın altında birikir, pencere sallanınca veya kapanınca dökülür.
 - **Kar küreme aracı:** Zemin dolunca küçük bir kamyon gelip karı temizler.
+- **Kara delik:** Sol üst köşedeki kara deliğe dosya bırak: görselleri, PDF'leri ve videoları sıkıştırır, PDF birleştirir, ZIP yapar, arşiv açar, JSON ve CSV dönüştürür.
+- **Kar topu ve kardan adam:** Biriken karı fareyle yuvarla, topları üst üste koyup süsle. Yüksekten düşen kardan adam kar yığınına döner.
 - **Pil ve şarj:** Pili azalan robot görevine ara verip istasyonda şarj olur, sonra kaldığı yerden devam eder.
 
 ## Türk motifli halı
@@ -90,6 +92,85 @@ Metal ile çizilen, ekrandaki gerçek pencereleri takip eden bir kar simülasyon
 Zemin, birikme sınırının yarısına kadar dolunca turuncu bir kamyon ekrana girer. Karı bıçağıyla önüne katar, havaya savurur ve diğer uçtan çıkar. Her geçişten sonra en az bir dakika bekler.
 
 Karı ve küreme aracını menü çubuğundaki simgeden ya da **Ayarlar** sekmesinden açıp kapatabilirsin. Yoğunluk ve birikme sınırı da aynı sekmeden ayarlanır.
+
+### Kar topu ve kardan adam
+
+<div align="center">
+<img src="docs/images/kardan-adam.png" alt="Üç kar topundan yapılmış süslü kardan adam">
+</div>
+
+| Yapmak istediğin | Nasıl? |
+| --- | --- |
+| Kar topu yap | Biriken karın üstüne sol tıkla, bir avuç kar alınır |
+| Topu büyüt | Basılı tutup karın üstünde sürükle. Top yuvarlandıkça karı toplar, arkasında iz kalır |
+| Kardan adam yap | Bir topu başka bir topun üstüne bırak. İkinci topla yüz ve kollar, üçüncüyle şapka ve atkı gelir |
+| Süsle | Topa sağ tıkla: gözler, havuç burun, dal kollar, düğmeler, şapka, atkı |
+| Kardan adamı taşı | En alttaki topu tut. Üstündeki toplar onunla birlikte gelir, sertçe sallarsan düşerler |
+| Fırlat | Topu hızla savurarak bırak |
+| Kar yığınından top yap | Yığına tıkla ya da topu yığının üstünde yuvarla |
+
+### Yer çekimi
+
+<div align="center">
+<img src="docs/images/kar-yigini.png" alt="Yüksekten düşüp süsleriyle birlikte kar yığınına dönen kardan adam">
+</div>
+
+| Düşme | Ne olur? |
+| --- | --- |
+| Alçaktan | Top sağlam kalır, bir an ezilip toparlanır |
+| Orta yükseklikten | Top kalıcı olarak basıklaşır, üstündeki toplar sarsılıp düşebilir |
+| Yüksekten (yaklaşık ekranın yarısı) | Top dağılır. Bir kısmı topak topak sıçrar, kalanı yerde yayılan bir kar yığını olur |
+| Kardan adam yüksekten | Bütün toplar tek bir yığına çöker. Şapka, havuç, kollar, atkı ve kömürler yığının üstüne düşer |
+| Bir top başka bir topun üstüne hızla | İkisi birbirine gömülür ve alttaki topun yerinde tek bir yığın olur |
+
+Yığınlar zeminin biçimini izler, çukurlara ve topun bıraktığı izlere dökülür. Yağan kar yığınlara da yapışır.
+
+Toplar pencerelerin üstünde de durur. Pencere yavaşça taşınırsa top onunla gider, sertçe çekilir ya da kapanırsa düşer. Küreme aracı yerdeki kar yığınlarını kürer. Küçük topları bıçağının önüne katıp yuvarlar, top yolundaki karı toplayarak büyür. Büyük topları ve kardan adamları ise parçalayıp önündeki kara katar. Pencerelerin üstündeki toplara dokunmaz.
+
+Pencere yalnızca imleç birikmiş karın veya bir topun üstündeyken tıklamayı alır, geri kalan her yerde tıklama alttaki uygulamaya geçer. Bu özelliği **Ayarlar > Fareyle kar topu yapılsın** ile kapatabilirsin.
+
+## Kara delik
+
+<div align="center">
+<img src="docs/images/kara-delik.png" alt="Işığı büken birikim diskiyle masaüstündeki kara delik">
+</div>
+
+Masaüstünün sol üst köşesinde, ışığı büken bir birikim diskiyle dönen bir kara delik durur. Üstüne dosya sürükleyince çekim alanı büyür, disk hızlanır ve dosyaya doğru bir akıntı uzanır. Bıraktığın dosya spiral çizip diske yassılarak içeri çekilir. İşlem bitince sonuç parçacıklarla dışarı fırlar, deliğin üstünde birkaç saniye bir etiket görünür.
+
+| Bırakış | Renk | Ne olur? |
+| --- | --- | --- |
+| Görsel (PNG, JPG, HEIC, TIFF, WebP) | Mor | Sıkışır ya da dönüşür (`_compressed`, HEIC ve WebP için `_converted`) |
+| Tek PDF | Mor | İçindeki görseller yeniden sıkıştırılır, yazılar keskin kalır (`_compressed.pdf`) |
+| Birden çok PDF | Mor | Bırakıldığı sırayla tek PDF'te birleşir (`_merged.pdf`) |
+| Video (MOV, MP4, M4V) | Mor | HEVC ya da H.264 ile hafif bir MP4'e sıkışır (`_compressed.mp4`) |
+| Klasör ya da karışık dosyalar | Mor | Tek bir ZIP olur |
+| Tek satırlık JSON | Mor | Okunur hale gelir (`_formatted.json`) |
+| Girintili JSON | Mor | Tek satıra küçülür (`_minified.json`) |
+| CSV | Mor | JSON'a dönüşür (`_converted.json`) |
+| ZIP, TAR, TAR.GZ ya da **Shift** basılı | Beyaz | Arşiv yanındaki klasöre açılır |
+| **Shift** ile tek PDF | Beyaz | Her sayfa ayrı PDF olarak bir klasöre çıkar |
+| **Shift** ile görseller | Beyaz | Görseller tek bir PDF'in sayfaları olur |
+| **Shift** ile sesli video | Beyaz | Sesi M4A olarak ayrılır (`_audio.m4a`) |
+| **Shift** ile sessiz kısa video | Beyaz | En fazla 30 saniyelik video, saniyede 10 karelik bir GIF olur |
+| **Option** basılı | Kırmızı | Dosyalar Çöp Sepeti'ne taşınır |
+
+Kırmızı mod dışında orijinal dosyaya hiç dokunulmaz. Çıktı orijinalin yanına kaydedilir, aynı adda bir dosya varsa üzerine yazılmaz. İşlenemeyen dosyayı kara delik geri tükürür. JSON düzenlenirken anahtar sırası korunur. CSV'de noktalı virgül, tırnaklı alanlar ve Windows Türkçe kodlaması tanınır. ZIP'ler `__MACOSX` artığı içermez, her sistemde temiz açılır.
+
+Kara deliği sürükleyip istediğin yere taşıyabilirsin. Sağ tıklayınca kısa bir kullanım özeti, "İşlemden sonra orijinali Çöp Sepeti'ne taşı" seçeneği, yerine geri koyma ve gizleme seçenekleri açılır. Menü çubuğundaki simgeden ve **Ayarlar** sekmesinden de açılıp kapatılabilir.
+
+Görsellerde çıktı biçimi (JPG, HEIC, WebP) ve kalite (Düşük, Orta, Yüksek) sağ tık menüsünden ya da **Ayarlar** sekmesinden seçilir. Düşük kalitede uzun kenar 2048, ortada 3840 pikselle sınırlanır, yüksekte boyut değişmez. Fotoğraflardaki konum bilgisi varsayılan olarak silinir, diğer fotoğraf bilgileri korunur. Yan çekilmiş fotoğraflar düz kaydedilir, saydam ekran görüntüleri JPG olurken beyaz zemine oturur. Sıkıştırma dosyayı küçültmezse yeni dosya tutulmaz ve kara delik dosyayı geri tükürür. Şifreli PDF'lere dokunulmaz.
+
+WebP yazmak için `cwebp` gerekir, macOS bunu kendisi yazamaz. Kurulu değilse WebP seçeneği kapalı görünür:
+
+```bash
+brew install webp
+```
+
+Videolar da aynı kalite ayarını kullanır: düşük kalite 720p H.264, orta kalite 1080p HEVC, yüksek kalite çözünürlüğü koruyan HEVC verir. Video gibi uzun süren işlerde kara deliğin üstünde bir ilerleme yüzdesi görünür. MKV ve AVI dosyalarını macOS açamadığı için bunlar yalnızca `ffmpeg` kuruluysa işlenir:
+
+```bash
+brew install ffmpeg
+```
 
 ## Denetim paneli
 
@@ -210,6 +291,18 @@ Sources/
 ├── Snow.swift       Kar penceresi, pencere takibi ve Metal çizimi
 ├── SnowEngine.swift Kar fiziği ve kar küreme aracı
 ├── SnowCheck.swift  Kar fiziği testleri
+├── SnowSculpt.swift Kar topu, kardan adam, kar yığını ve yer çekimi
+├── SculptCheck.swift Kar topu testleri
+├── BlackHole/
+│   ├── BlackHoleController.swift Kara delik penceresi, sürükle bırak ve animasyonlar
+│   ├── HoleRenderer.swift        Işığı büken diskin Metal çizimi
+│   ├── HoleProcessor.swift       ZIP, arşiv açma, JSON ve CSV işlemleri
+│   ├── HoleMedia.swift           Görsel ve PDF işlemleri
+│   ├── HoleVideo.swift           Video sıkıştırma, ses ayırma ve GIF
+│   ├── HoleVideoCheck.swift      Video testleri
+│   ├── HoleMediaCheck.swift      Görsel ve PDF testleri
+│   ├── HoleCheck.swift           İşlem ve görünüm testleri
+│   └── HoleUICheck.swift         Kara delik penceresinin uçtan uca testi
 └── SelfTest.swift   Otomatik testler
 build.sh             .app paketini derler ve imzalar
 ```
@@ -244,6 +337,18 @@ Testler geçici klasörlerde çalışır, gerçek masaüstüne dokunmaz.
 
 ```bash
 "Robo Süpürge.app/Contents/MacOS/RoboSupurge" --motion-check
+```
+
+```bash
+"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --sculpt-check
+```
+
+```bash
+"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --hole-check
+```
+
+```bash
+"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --hole-ui-check
 ```
 
 ## Bilinen sınırlar

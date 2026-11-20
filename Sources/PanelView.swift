@@ -282,6 +282,32 @@ struct SettingsTab: View {
                 .disabled(!model.snowEnabled)
                 Toggle("Kar küreme aracı", isOn: $model.snowPlowEnabled)
                     .disabled(!model.snowEnabled)
+                Toggle("Fareyle kar topu yapılsın", isOn: $model.snowSculpt)
+                    .disabled(!model.snowEnabled)
+                if model.snowSculpt, model.snowEnabled {
+                    Text("Biriken karı sol tıkla tutup sürükle, top büyüsün. Topları üst üste koy, kardan adam olsun. Sağ tıkla süsle.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Section("Kara delik") {
+                Toggle("Kara deliği göster", isOn: $model.holeEnabled)
+                Toggle("İşlemden sonra orijinali Çöp Sepeti'ne taşı", isOn: $model.holeTrashOriginal)
+                    .disabled(!model.holeEnabled)
+                Picker("Görsel biçimi", selection: $model.holeImageFormat) {
+                    ForEach(HoleSettings.Format.allCases, id: \.rawValue) { f in
+                        Text(f == .webp && HoleTools.cwebp == nil ? "WebP (cwebp gerekli)" : f.title).tag(f.rawValue)
+                    }
+                }
+                .disabled(!model.holeEnabled)
+                Picker("Kalite", selection: $model.holeQuality) {
+                    ForEach(HoleSettings.Quality.allCases, id: \.rawValue) { Text($0.title).tag($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+                .disabled(!model.holeEnabled)
+                Toggle("Fotoğraflardan konum bilgisini sil", isOn: $model.holeStripLocation)
+                    .disabled(!model.holeEnabled)
+                Text("Görsel, PDF ve video bırak: sıkışır, birden çok PDF birleşir. Klasör ZIP olur, JSON düzenlenir, CSV JSON'a dönüşür. Shift ile arşiv açılır, PDF sayfalara ayrılır, görseller PDF olur, videonun sesi ayrılır ya da sessiz kısa video GIF olur. Option ile Çöp Sepeti'ne gider.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section("Halı") {
                 Toggle("Halıyı göster", isOn: $model.rugVisible)

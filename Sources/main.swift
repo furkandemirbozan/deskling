@@ -11,6 +11,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var rugCheck: RugCheck?
     private var motionCheck: MotionCheck?
     private var snow: SnowController?
+    private var hole: BlackHoleController?
+    private var holeCheck: HoleUICheck?
 
     func applicationDidFinishLaunching(_ note: Notification) {
         NSApp.applicationIconImage = RobotArt.appIcon(256)
@@ -25,6 +27,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let i = args.firstIndex(of: "--motion-check") {
             motionCheck = MotionCheck(output: i + 1 < args.count ? URL(fileURLWithPath: args[i + 1]) : nil)
             motionCheck?.run()
+            return
+        }
+        if let i = args.firstIndex(of: "--hole-ui-check") {
+            holeCheck = HoleUICheck(output: i + 1 < args.count ? URL(fileURLWithPath: args[i + 1]) : nil)
+            holeCheck?.run()
             return
         }
         if args.contains("--auto-check") {
@@ -52,6 +59,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.attach(overlay)
         snow = SnowController()
         model.connectSnow(snow!)
+        hole = BlackHoleController()
+        model.connectHole(hole!)
 
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         status.button?.image = NSImage(systemSymbolName: "circle.circle.fill", accessibilityDescription: "Robo Süpürge")
@@ -205,6 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         add(menu, model.snowPlowEnabled ? "Küreme Aracını Kapat" : "Küreme Aracını Aç", #selector(togglePlow))
         add(menu, "Halının Altını Aç", #selector(openRug))
         add(menu, model.rugVisible ? "Halıyı Gizle" : "Halıyı Göster", #selector(toggleRug))
+        add(menu, model.holeEnabled ? "Kara Deliği Gizle" : "Kara Deliği Göster", #selector(toggleHole))
         if model.busy {
             add(menu, model.paused ? "Devam Et" : "Duraklat", #selector(pause))
             add(menu, "İstasyona Dön", #selector(home))
@@ -239,6 +249,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func toggleSnow() { model.snowEnabled.toggle() }
     @objc func togglePlow() { model.snowPlowEnabled.toggle() }
     @objc func openRug() { NSWorkspace.shared.open(model.rugStore.dir) }
+    @objc func toggleHole() { model.holeEnabled.toggle() }
     @objc func toggleRug() {
         model.rugVisible.toggle()
     }
@@ -255,6 +266,12 @@ if arguments.contains("--snow-windows") {
 }
 if let i = arguments.firstIndex(of: "--snow-check") {
     exit(SnowCheck.run(output: i + 1 < arguments.count ? URL(fileURLWithPath: arguments[i + 1]) : nil))
+}
+if let i = arguments.firstIndex(of: "--sculpt-check") {
+    exit(SculptCheck.run(output: i + 1 < arguments.count ? URL(fileURLWithPath: arguments[i + 1]) : nil))
+}
+if let i = arguments.firstIndex(of: "--hole-check") {
+    exit(HoleCheck.run(output: i + 1 < arguments.count ? URL(fileURLWithPath: arguments[i + 1]) : nil))
 }
 if arguments.contains("--login-status") {
     print("giris_durumu=\(SMAppService.mainApp.status.rawValue)")   // 0 kayıtsız, 1 etkin, 2 onay bekliyor, 3 bulunamadı

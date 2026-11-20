@@ -90,8 +90,18 @@ final class SnowRenderer {
 
 // MARK: - Ekrandaki kar
 
-final class SnowController {
-    private let window: NSWindow
+/// Kar penceresinin içeriği; yalnızca imleç karın üstündeyken fare olaylarını alır.
+final class SnowInputView: NSView {
+    weak var controller: SnowController?
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override func mouseDown(with e: NSEvent) { controller?.mouseDown(e) }
+    override func mouseDragged(with e: NSEvent) { controller?.mouseDragged(e) }
+    override func mouseUp(with e: NSEvent) { controller?.mouseUp(e) }
+    override func rightMouseDown(with e: NSEvent) { controller?.rightMouseDown(e, in: self) }
+}
+
+final class SnowController: NSObject {
+    private let window: NSPanel
     private let metal = CAMetalLayer()
     private let renderer: SnowRenderer?
     private var engine: SnowEngine
@@ -114,11 +124,23 @@ final class SnowController {
     private let pollQueue = DispatchQueue(label: "robo.snow.windows", qos: .userInteractive)
     private var observers: [NSObjectProtocol] = []
 
-    init() {
+    // Kar topu
+    private var inputs: [SnowInput] = []
+    private var map = SnowGrabMap()
+    private var mapFrame = 0
+    private var sculptEnabled = true
+    private var hoverTimer: Timer?
+    private var dragging = false
+    private var samples: [(t: Double, p: CGPoint)] = []
+
+    override init() {
         let s = DesktopMap.screen
         renderer = SnowRenderer()
         engine = SnowEngine(width: s.frame.width, height: s.frame.height)
-        window = NSWindow(contentRect: s.frame, styleMask: .borderless, backing: .buffered, defer: false, screen: s)
+        window = NSPanel(contentRect: s.frame, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        super.init()
+        window.setFrame(s.frame, display: false)
+        window.hidesOnDeactivate = false
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = false
@@ -128,7 +150,8 @@ final class SnowController {
         window.level = NSWindow.Level(Int(CGWindowLevelForKey(.dockWindow)) - 1)
         window.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
 
-        let view = NSView(frame: NSRect(origin: .zero, size: s.frame.size))
+        let view = SnowInputView(frame: NSRect(origin: .zero, size: s.frame.size))
+        view.controller = self
         metal.device = renderer?.device
         metal.pixelFormat = .bgra8Unorm
         metal.isOpaque = false
@@ -175,9 +198,110 @@ final class SnowController {
 
     func setEnabled(_ on: Bool) {
         lock.lock(); wantsSnow = on; lock.unlock()
+        updateHover()
         guard on, renderer != nil else { return }
         window.orderFrontRegardless()
         startLink()
+    }
+
+    func setSculptEnabled(_ on: Bool) {
+        sculptEnabled = on
+        updateHover()
+    }
+
+    // MARK: - Fareyle kar topu
+
+    /// İmleç karın veya bir topun üstündeyken pencere tıklamayı alır, başka her yerde tıklama alttakine geçer.
+    private func updateHover() {
+        lock.lock(); let wants = wantsSnow; lock.unlock()
+        let active = wants && sculptEnabled && renderer != nil
+        if active, hoverTimer == nil {
+            let t = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in self?.hover() }
+            RunLoop.main.add(t, forMode: .common)
+            hoverTimer = t
+        } else if !active {
+            hoverTimer?.invalidate()
+            hoverTimer = nil
+            if dragging { send(.release(.zero)); dragging = false }
+            window.ignoresMouseEvents = true
+        }
+    }
+
+    private func local(_ global: NSPoint) -> CGPoint {
+        CGPoint(x: global.x - window.frame.minX, y: window.frame.maxY - global.y)
+    }
+
+    private func hit(_ p: CGPoint) -> SnowGrabMap.Hit? {
+        lock.lock(); defer { lock.unlock() }
+        return map.hit(p)
+    }
+
+    private func hover() {
+        // Bırakma olayı kaybolduysa pencere ekranın tıklamalarını tutmaya devam etmesin.
+        if dragging, NSEvent.pressedMouseButtons & 1 == 0 {
+            dragging = false
+            samples = []
+            send(.release(.zero))
+        }
+        let accept = dragging || hit(local(NSEvent.mouseLocation)) != nil
+        if window.ignoresMouseEvents == accept { window.ignoresMouseEvents = !accept }
+    }
+
+    private func send(_ input: SnowInput) {
+        lock.lock(); inputs.append(input); lock.unlock()
+    }
+
+    func mouseDown(_ e: NSEvent) {
+        let p = local(NSEvent.mouseLocation)
+        dragging = true
+        samples = [(e.timestamp, p)]
+        send(.grab(p))
+    }
+
+    func mouseDragged(_ e: NSEvent) {
+        let p = local(NSEvent.mouseLocation)
+        samples.append((e.timestamp, p))
+        samples.removeAll { e.timestamp - $0.t > 0.09 }
+        send(.move(p))
+    }
+
+    func mouseUp(_ e: NSEvent) {
+        dragging = false
+        var v = CGVector.zero
+        if let first = samples.first, let last = samples.last, last.t - first.t > 0.01, e.timestamp - last.t < 0.06 {
+            let dt = CGFloat(last.t - first.t)
+            v = CGVector(dx: (last.p.x - first.p.x) / dt, dy: (last.p.y - first.p.y) / dt)   // fırlatma hızı
+        }
+        samples = []
+        send(.release(v))
+    }
+
+    func rightMouseDown(_ e: NSEvent, in view: NSView) {
+        guard case .ball(let id, let decor) = hit(local(NSEvent.mouseLocation)) else { return }
+        let menu = NSMenu()
+        for (d, title) in SnowDecor.menu {
+            let item = NSMenuItem(title: title, action: #selector(toggleDecor(_:)), keyEquivalent: "")
+            item.target = self
+            item.state = decor.contains(d) ? .on : .off
+            item.representedObject = [id, Int(d.rawValue)]
+            menu.addItem(item)
+        }
+        menu.addItem(.separator())
+        let breakItem = NSMenuItem(title: "Kar topunu dağıt", action: #selector(breakBall(_:)), keyEquivalent: "")
+        breakItem.target = self
+        breakItem.representedObject = id
+        menu.addItem(breakItem)
+        NSMenu.popUpContextMenu(menu, with: e, for: view)
+    }
+
+    @objc private func toggleDecor(_ item: NSMenuItem) {
+        guard let v = item.representedObject as? [Int], v.count == 2 else { return }
+        send(.decorate(v[0], SnowDecor(rawValue: UInt8(v[1]))))
+    }
+
+    @objc private func breakBall(_ item: NSMenuItem) {
+        guard let id = item.representedObject as? Int else { return }
+        send(.shatter(id))
     }
 
     private func startLink() {
@@ -210,7 +334,8 @@ final class SnowController {
             lock.lock()
             let windows = pending, pollDt = pendingDt, space = spaceChanged, wants = wantsSnow
             let intensity = targetIntensity, limit = targetLimit, needsRebuild = rebuild, plowOn = targetPlow
-            pending = nil; spaceChanged = false; rebuild = false
+            let commands = inputs
+            pending = nil; spaceChanged = false; rebuild = false; inputs = []
             lock.unlock()
 
             if needsRebuild {
@@ -224,10 +349,17 @@ final class SnowController {
             engine.setMelting(!wants)
             if space { engine.noteSpaceChange() }
             if let windows { engine.apply(windows: windows, dt: pollDt) }
+            for c in commands { engine.handle(c) }
             engine.step(dt)
             schedulePoll(now)
+            mapFrame &+= 1
+            if mapFrame % 3 == 0 || !commands.isEmpty {
+                let m = engine.grabMap()
+                lock.lock(); map = m; lock.unlock()
+            }
 
             if engine.isFinished, !wants {
+                lock.lock(); map = SnowGrabMap(); lock.unlock()
                 finish()
                 return
             }

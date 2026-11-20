@@ -87,10 +87,41 @@ final class AppModel: ObservableObject {
     @Published var snowIntensity: Double { didSet { d.set(snowIntensity, forKey: "snowIntensity"); snow?.setIntensity(snowIntensity) } }
     @Published var snowLimit: Double { didSet { d.set(snowLimit, forKey: "snowLimit"); snow?.setLimit(snowLimit) } }
     @Published var snowPlowEnabled: Bool { didSet { d.set(snowPlowEnabled, forKey: "snowPlowEnabled"); snow?.setPlowEnabled(snowPlowEnabled) } }
+    // Kara delik
+    @Published var holeEnabled: Bool { didSet { d.set(holeEnabled, forKey: "holeEnabled"); hole?.setVisible(holeEnabled) } }
+    @Published var holeTrashOriginal: Bool { didSet { d.set(holeTrashOriginal, forKey: "holeTrashOriginal"); hole?.trashOriginal = holeTrashOriginal } }
+    @Published var holeImageFormat: String { didSet { d.set(holeImageFormat, forKey: "holeImageFormat"); hole?.settings = holeSettings } }
+    @Published var holeQuality: String { didSet { d.set(holeQuality, forKey: "holeQuality"); hole?.settings = holeSettings } }
+    @Published var holeStripLocation: Bool { didSet { d.set(holeStripLocation, forKey: "holeStripLocation"); hole?.settings = holeSettings } }
+    private weak var hole: BlackHoleController?
+
+    var holeSettings: HoleSettings {
+        HoleSettings(format: HoleSettings.Format(rawValue: holeImageFormat) ?? .jpg,
+                     quality: HoleSettings.Quality(rawValue: holeQuality) ?? .medium,
+                     stripLocation: holeStripLocation)
+    }
+
+    func connectHole(_ h: BlackHoleController) {
+        hole = h
+        h.trashOriginal = holeTrashOriginal
+        h.settings = holeSettings
+        h.onSettingsChange = { [weak self] s in
+            self?.holeImageFormat = s.format.rawValue
+            self?.holeQuality = s.quality.rawValue
+            self?.holeStripLocation = s.stripLocation
+        }
+        h.onTrashOriginalChange = { [weak self] in self?.holeTrashOriginal = $0 }
+        h.onHide = { [weak self] in self?.holeEnabled = false }
+        h.onFinished = { [weak self] r in if r.ok { self?.play(r.consumed ? "Submarine" : "Funk") } else { self?.play("Basso") } }
+        h.setVisible(holeEnabled)
+    }
+
+    @Published var snowSculpt: Bool { didSet { d.set(snowSculpt, forKey: "snowSculpt"); snow?.setSculptEnabled(snowSculpt) } }
     private var snow: SnowController?
 
     func connectSnow(_ controller: SnowController) {
         snow = controller
+        controller.setSculptEnabled(snowSculpt)
         controller.setIntensity(snowIntensity)
         controller.setLimit(snowLimit)
         controller.setPlowEnabled(snowPlowEnabled)
@@ -138,7 +169,8 @@ final class AppModel: ObservableObject {
                 .appendingPathComponent("RoboSupurge/Halı Altı", isDirectory: true))
         d.register(defaults: ["mode": "automatic", "speed": 240.0, "capacity": 3, "minAge": 60, "sounds": true,
                               "launchAtLogin": true, "bumpIcons": true, "rugVisible": true, "rugScale": 1.0,
-                              "snowEnabled": true, "snowIntensity": 0.5, "snowLimit": 1.0, "snowPlowEnabled": true])
+                              "snowEnabled": true, "snowIntensity": 0.5, "snowLimit": 1.0, "snowPlowEnabled": true, "snowSculpt": true, "holeEnabled": true, "holeTrashOriginal": false,
+                              "holeImageFormat": "jpg", "holeQuality": "medium", "holeStripLocation": true])
         // Önceki sürümden gelenler de 1 saat kuralına geçsin.
         if !d.bool(forKey: "autoHourV1") {
             d.set(CleanMode.automatic.rawValue, forKey: "mode")
@@ -158,6 +190,12 @@ final class AppModel: ObservableObject {
         snowIntensity = d.double(forKey: "snowIntensity")
         snowLimit = d.double(forKey: "snowLimit")
         snowPlowEnabled = d.bool(forKey: "snowPlowEnabled")
+        snowSculpt = d.bool(forKey: "snowSculpt")
+        holeEnabled = d.bool(forKey: "holeEnabled")
+        holeTrashOriginal = d.bool(forKey: "holeTrashOriginal")
+        holeImageFormat = d.string(forKey: "holeImageFormat") ?? "jpg"
+        holeQuality = d.string(forKey: "holeQuality") ?? "medium"
+        holeStripLocation = d.bool(forKey: "holeStripLocation")
         protected = Set(d.stringArray(forKey: "protected") ?? [])
         engine = RobotEngine(base: DesktopMap.basePoint(), trash: DesktopMap.stationApproach())
         engine.maxSpeed = speed

@@ -221,7 +221,7 @@ enum SnowCheck {
 
     // MARK: - Görsel kontrol
 
-    private static func render(_ e: SnowEngine, _ wins: [SnowWindow], _ output: URL?, _ name: String) {
+    static func render(_ e: SnowEngine, _ wins: [SnowWindow], _ output: URL?, _ name: String) {
         guard let output, let r = SnowRenderer() else { return }
         let w = Int(e.width), h = Int(e.height)
         let k = 2
