@@ -1,16 +1,20 @@
 <div align="center">
 
-<img src="docs/images/robot.png" width="180" alt="Robo Süpürge robotu">
+<img src="docs/images/robot.png" width="180" alt="Deskling robotu">
 
-# Robo Süpürge
+# Deskling
 
-**Masaüstünde yaşayan, ekran görüntülerini toplayıp kutusuna taşıyan minik robot süpürge altına dosya saklayabildiğin Türk motifli halı ve pencerelerinde biriken gerçekçi kar.**
+**Masaüstünde yaşayan küçük yardımcın: ekran görüntülerini toplayan robot süpürge, altına dosya saklayabildiğin Türk motifli halı, fareyle kardan adam yapabildiğin gerçekçi kar, dosyaları sıkıştıran bir kara delik, port ve Docker kontrol merkezi ve akıllı pano yöneticisi.**
 
 macOS · Swift · AppKit · SwiftUI · Core Animation · Metal
 
 </div>
 
 ---
+
+Deskling bir robot süpürge olarak başladı, sonra masaüstünün her köşesine yayıldı. Her şey tek bir menü çubuğu uygulamasında, internet bağlantısı olmadan ve verilerin bu Mac'ten çıkmadan çalışır. Her özellik ayrı ayrı açılıp kapatılabilir.
+
+### Robot süpürge
 
 Masaüstün ekran görüntüleriyle dolduğunda robota çift tıkla. Robot istasyonundan çıkar, her ekran görüntüsüne tek tek gider, onu animasyonla içine çeker ve istasyondaki kutuya boşaltır. **Hiçbir dosya silinmez.** Toplananlar bir klasörde seni bekler, neyi saklayacağına sen karar verirsin.
 
@@ -62,7 +66,7 @@ Koçboynuzu bordürü, Selçuklu yıldızları ve basamaklı göbekleriyle tamam
 Halının altına süpürülen dosyalar şu özel klasöre taşınır, robot bu klasöre hiç bakmaz:
 
 ```text
-~/Library/Application Support/RoboSupurge/Halı Altı
+~/Library/Application Support/Deskling/Halı Altı
 ```
 
 Halıyı bir ekran görüntüsünün üstüne çekmek de onu robottan korur. Bu koruma Finder'ın bildirdiği simge konumuna bağlıdır ve halı gizlenince kalkar. Kesin koruma için dosyayı halının altına süpür.
@@ -212,14 +216,14 @@ Kopyaladığın metinleri, bağlantıları, kod parçalarını ve renk kodların
 - Aynı metni yeniden kopyalarsan yeni kayıt açılmaz, var olan en üste çıkar.
 - Pano yalnızca değiştiğinde okunur (`changeCount`), boştayken işlemciye yük olmaz.
 - Parola yöneticilerinin gizli işaretlediği kopyalar ve Finder'da kopyalanan dosyalar kaydedilmez.
-- Geçmiş yalnızca bu Mac'te, yalnızca senin okuyabildiğin bir dosyada (`~/Library/Application Support/RoboSupurge/pano.json`) tutulur.
+- Geçmiş yalnızca bu Mac'te, yalnızca senin okuyabildiğin bir dosyada (`~/Library/Application Support/Deskling/pano.json`) tutulur.
 
 Otomatik yapıştırma için macOS **Erişilebilirlik** izni ister. İzin yoksa seçtiğin kayıt panoya kopyalanır, ⌘V ile yapıştırırsın. Kısayolu, kayıt sınırını ve izni **Ayarlar > Pano** bölümünden değiştirebilirsin. ⇧⌘V bazı uygulamalarda "Biçimi eşleştirerek yapıştır" kısayoludur; istersen başka bir kısayol seçebilirsin.
 
 ## Denetim paneli
 
 <div align="center">
-<img src="docs/images/panel.png" width="420" alt="Robo Süpürge denetim paneli">
+<img src="docs/images/panel.png" width="420" alt="Deskling denetim paneli">
 </div>
 
 Panele menü çubuğundaki yuvarlak simgeden ulaşırsın.
@@ -268,19 +272,23 @@ Adı "Ekran Resmi" olan sıradan bir görsel bu yüzden alınmaz.
 Toplanan görüntüler şu klasörde durur:
 
 ```text
-~/Library/Application Support/RoboSupurge/Toz Haznesi
+~/Library/Application Support/Deskling/Toz Haznesi
 ```
+
+## Robo Süpürge'den geçiş
+
+Uygulamanın eski adı Robo Süpürge'ydi. Deskling ilk açıldığında eski ayarları, toz haznesini, halının altındaki dosyaları, geçmişi ve pano kayıtlarını kendiliğinden yeni yerine taşır. Hiçbir şey silinmez. Uygulama kimliği değiştiği için macOS Masaüstü, Finder ve Erişilebilirlik izinlerini bir kez yeniden sorar.
 
 ## Kurulum
 
 **Gereksinimler:** Apple Silicon işlemcili bir Mac, macOS 13 veya üzeri, Xcode Command Line Tools.
 
 ```bash
-git clone https://github.com/furkandemirbozan/robo-supurge.git
+git clone https://github.com/furkandemirbozan/deskling.git
 ```
 
 ```bash
-cd robo-supurge
+cd deskling
 ```
 
 ```bash
@@ -288,11 +296,11 @@ cd robo-supurge
 ```
 
 ```bash
-cp -R "Robo Süpürge.app" /Applications/
+cp -R "Deskling.app" /Applications/
 ```
 
 ```bash
-open "/Applications/Robo Süpürge.app"
+open /Applications/Deskling.app
 ```
 
 ### İzinler
@@ -323,6 +331,7 @@ Finder izni verilmezse robot simgelerin yerini macOS'un varsayılan yerleşimine
 
 ```text
 Sources/
+├── Migration.swift  Robo Süpürge'den Deskling'e ayar ve veri geçişi
 ├── main.swift       Uygulama girişi ve menü çubuğu
 ├── AppModel.swift   Uygulama durumu, tarama ve görev yönetimi
 ├── Core.swift       Algılama, dosya taşıma ve masaüstü geometrisi
@@ -370,51 +379,55 @@ build.sh             .app paketini derler ve imzalar
 Testler geçici klasörlerde çalışır, gerçek masaüstüne dokunmaz.
 
 ```bash
-"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --self-test
+Deskling.app/Contents/MacOS/Deskling --self-test
 ```
 
 ```bash
-"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --double-click-check
+Deskling.app/Contents/MacOS/Deskling --double-click-check
 ```
 
 ```bash
-"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --patrol-check
+Deskling.app/Contents/MacOS/Deskling --patrol-check
 ```
 
 ```bash
-"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --auto-check
+Deskling.app/Contents/MacOS/Deskling --auto-check
 ```
 
 ```bash
-"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --rug-check
+Deskling.app/Contents/MacOS/Deskling --rug-check
 ```
 
 ```bash
-"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --snow-check
+Deskling.app/Contents/MacOS/Deskling --snow-check
 ```
 
 ```bash
-"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --motion-check
+Deskling.app/Contents/MacOS/Deskling --motion-check
 ```
 
 ```bash
-"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --sculpt-check
+Deskling.app/Contents/MacOS/Deskling --sculpt-check
 ```
 
 ```bash
-"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --hole-check
+Deskling.app/Contents/MacOS/Deskling --hole-check
 ```
 
 ```bash
-"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --hole-ui-check
+Deskling.app/Contents/MacOS/Deskling --hole-ui-check
 ```
 
 ```bash
-"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --dev-check
+Deskling.app/Contents/MacOS/Deskling --dev-check
 ```
 
 ```bash
-"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --clip-check
+Deskling.app/Contents/MacOS/Deskling --clip-check
+```
+
+```bash
+Deskling.app/Contents/MacOS/Deskling --migration-check
 ```
 
 ## Bilinen sınırlar

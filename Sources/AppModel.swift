@@ -157,7 +157,7 @@ final class AppModel: ObservableObject {
     var collectionDir: URL {
         if !usesRealDesktop { return desktop.appendingPathComponent(".hazne", isDirectory: true) }
         return FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RoboSupurge/Toz Haznesi", isDirectory: true)
+            .appendingPathComponent("\(AppInfo.name)/Toz Haznesi", isDirectory: true)
     }
 
     lazy var openCollection: () -> Void = { [weak self] in
@@ -169,7 +169,7 @@ final class AppModel: ObservableObject {
     private var historyURL: URL {
         if !usesRealDesktop { return desktop.appendingPathComponent(".gecmis.json") }
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RoboSupurge", isDirectory: true)
+            .appendingPathComponent(AppInfo.name, isDirectory: true)
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("gecmis.json")
     }
@@ -183,7 +183,7 @@ final class AppModel: ObservableObject {
             : ClipboardStore(pasteboard: NSPasteboard(name: NSPasteboard.Name("robo-test-\(UUID().uuidString)")), fileURL: nil)
         rugStore = RugStore(dir: desktopOverride?.appendingPathComponent(".hali/Hali Alti", isDirectory: true)
             ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-                .appendingPathComponent("RoboSupurge/Halı Altı", isDirectory: true))
+                .appendingPathComponent("\(AppInfo.name)/Halı Altı", isDirectory: true))
         d.register(defaults: ["mode": "automatic", "speed": 240.0, "capacity": 3, "minAge": 60, "sounds": true,
                               "launchAtLogin": true, "bumpIcons": true, "rugVisible": true, "rugScale": 1.0,
                               "snowEnabled": true, "snowIntensity": 0.5, "snowLimit": 1.0, "snowPlowEnabled": true, "snowSculpt": true, "holeEnabled": true, "holeTrashOriginal": false,

@@ -33,7 +33,7 @@ final class ClipboardStore: ObservableObject {
 
     static var defaultFile: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("RoboSupurge/pano.json")
+            .appendingPathComponent("\(AppInfo.name)/pano.json")
     }
 
     // MARK: - İzleme

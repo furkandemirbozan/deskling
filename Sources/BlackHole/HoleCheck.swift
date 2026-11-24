@@ -37,7 +37,7 @@ enum HoleCheck {
         // Örnek dosyalar
         let folder = dir.appendingPathComponent("Proje")
         try? fm.createDirectory(at: folder.appendingPathComponent("alt"), withIntermediateDirectories: true)
-        let filler = String(repeating: "Robo Süpürge kara delik deneme satırı. ", count: 4000)
+        let filler = String(repeating: "Deskling kara delik deneme satırı. ", count: 4000)
         try? filler.write(to: folder.appendingPathComponent("not.txt"), atomically: true, encoding: .utf8)
         try? "iç".write(to: folder.appendingPathComponent("alt/ic.txt"), atomically: true, encoding: .utf8)
         let a = dir.appendingPathComponent("a.txt"), b = dir.appendingPathComponent("b.txt")

@@ -63,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             runDemoCheck(output: URL(fileURLWithPath: args[i + 1]))
             return
         }
+        Migration.run()   // Robo Süpürge'den kalan ayar ve veriler yeni isme taşınır
         model = AppModel()
         overlay = OverlayController()
         rug = RugController(store: model.rugStore, restoreFallback: model.desktop, persist: true) { [weak self] in
@@ -77,7 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setUpClipboard()
 
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        status.button?.image = NSImage(systemSymbolName: "circle.circle.fill", accessibilityDescription: "Robo Süpürge")
+        status.button?.image = NSImage(systemSymbolName: "circle.circle.fill", accessibilityDescription: AppInfo.name)
         let menu = NSMenu()
         menu.delegate = self
         status.menu = menu
@@ -253,7 +254,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if panel == nil {
             let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 640),
                              styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-            w.title = "Robo Süpürge"
+            w.title = AppInfo.name
             w.isReleasedWhenClosed = false
             w.contentView = NSHostingView(rootView: PanelView(model: model))
             w.center()
@@ -311,6 +312,9 @@ if let i = arguments.firstIndex(of: "--snow-check") {
 }
 if let i = arguments.firstIndex(of: "--sculpt-check") {
     exit(SculptCheck.run(output: i + 1 < arguments.count ? URL(fileURLWithPath: arguments[i + 1]) : nil))
+}
+if arguments.contains("--migration-check") {
+    exit(MigrationCheck.run())
 }
 if let i = arguments.firstIndex(of: "--hole-check") {
     exit(HoleCheck.run(output: i + 1 < arguments.count ? URL(fileURLWithPath: arguments[i + 1]) : nil))
