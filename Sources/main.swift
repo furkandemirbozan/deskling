@@ -16,6 +16,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var clipPanel: ClipboardPanelController?
     private var devCheck: DevCheck?
     private var clipCheck: ClipboardCheck?
+    private var statusSymbol = "robot"
+    private var drink: DrinkController?
+    private var drinkCheck: DrinkUICheck?
+    private var syncCheck: PomodoroSyncCheck?
 
     func applicationDidFinishLaunching(_ note: Notification) {
         NSApp.applicationIconImage = RobotArt.appIcon(256)
@@ -35,6 +39,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if args.contains("--dev-check") {
             devCheck = DevCheck()
             devCheck?.run()
+            return
+        }
+        if args.contains("--pomo-sync-check") {
+            syncCheck = PomodoroSyncCheck()
+            syncCheck?.run()
+            return
+        }
+        if let i = args.firstIndex(of: "--drink-ui-check") {
+            drinkCheck = DrinkUICheck(output: i + 1 < args.count ? URL(fileURLWithPath: args[i + 1]) : nil)
+            drinkCheck?.run()
             return
         }
         if args.contains("--clip-check") {
@@ -76,6 +90,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         hole = BlackHoleController()
         model.connectHole(hole!)
         setUpClipboard()
+        let drink = DrinkController(pomo: model.pomo)
+        drink.onOpenSettings = { [weak self] in
+            self?.model.panelTab = .pomodoro
+            self?.showPanel()
+        }
+        self.drink = drink
+        model.connectDrink(drink)
 
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         status.button?.image = NSImage(systemSymbolName: "circle.circle.fill", accessibilityDescription: AppInfo.name)
@@ -83,6 +104,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.delegate = self
         status.menu = menu
         model.onNeedsPanel = { [weak self] in self?.showPanel() }
+        model.pomoListeners.append { [weak self] in self?.updateStatusButton() }
+        updateStatusButton()
+    }
+
+    /// Sayaç çalışırken menü çubuğunda içeceğin simgesi ve kalan süre görünür.
+    private func updateStatusButton() {
+        guard let button = status?.button else { return }
+        let label = model.pomoMenuLabel
+        // Odakta içeceğin kendi simgesi, kalan süreyle birlikte boşalır; molada yürüyen adam.
+        let fill = 1 - model.pomo.progress * 0.92
+        let key = label == nil ? "robot" : model.pomo.phase.isBreak ? "mola"
+            : "\(model.pomoDrink.rawValue)-\(Int((fill * 8).rounded()))"
+        if statusSymbol != key {
+            button.image = label == nil
+                ? NSImage(systemSymbolName: "circle.circle.fill", accessibilityDescription: AppInfo.name)
+                : model.pomo.phase.isBreak ? NSImage(systemSymbolName: "figure.walk", accessibilityDescription: "Mola")
+                : DrinkIcons.menuIcon(model.pomoDrink, fill: fill)
+            statusSymbol = key
+        }
+        let text = label.map { " " + $0 } ?? ""
+        if button.attributedTitle.string != text {
+            button.attributedTitle = NSAttributedString(string: text, attributes: [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)])
+            button.imagePosition = label == nil ? .imageOnly : .imageLeading
+        }
+        button.alphaValue = label == nil || model.pomo.running ? 1 : 0.55   // duraklatılınca soluk
     }
 
     /// Uygulama açıkken simgesine çift tıklanırsa denetim paneli açılır; temizlik yalnızca robottan başlar.
@@ -228,6 +275,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             add(menu, "Pano Geçmişi  \(model.clipShortcut.label)", #selector(openClipboard))
         }
         add(menu, "Portlar ve Servisler", #selector(openPorts))
+        if model.pomoEnabled {
+            menu.addItem(.separator())
+            let info = NSMenuItem(title: model.pomoSummary, action: nil, keyEquivalent: "")
+            info.isEnabled = false
+            menu.addItem(info)
+            let p = model.pomo
+            add(menu, p.phase == .idle ? "Odak Başlat" : p.running ? "Duraklat" : "Devam Et", #selector(pomoToggle))
+            add(menu, model.pomoShowDrink ? "İçeceği Gizle" : "İçeceği Göster", #selector(toggleDrink))
+            if p.phase != .idle {
+                add(menu, p.phase == .focus ? "Molaya Geç" : "Molayı Atla", #selector(pomoSkip))
+                add(menu, "Sayacı Sıfırla", #selector(pomoReset))
+            }
+            menu.addItem(.separator())
+        }
         add(menu, "Toz Haznesini Aç", #selector(openBox))
         add(menu, model.snowEnabled ? "Karı Durdur" : "Kar Yağdır", #selector(toggleSnow))
         add(menu, model.snowPlowEnabled ? "Küreme Aracını Kapat" : "Küreme Aracını Aç", #selector(togglePlow))
@@ -270,6 +331,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func openRug() { NSWorkspace.shared.open(model.rugStore.dir) }
     @objc func toggleHole() { model.holeEnabled.toggle() }
     @objc func openClipboard() { clipPanel?.show() }
+    @objc func pomoToggle() { model.pomo.toggle() }
+    @objc func pomoSkip() { model.pomo.skip() }
+    @objc func pomoReset() { model.pomo.reset() }
+    @objc func toggleDrink() { model.pomoShowDrink.toggle() }
     @objc func openPorts() {
         model.panelTab = .ports
         showPanel()
@@ -312,6 +377,12 @@ if let i = arguments.firstIndex(of: "--snow-check") {
 }
 if let i = arguments.firstIndex(of: "--sculpt-check") {
     exit(SculptCheck.run(output: i + 1 < arguments.count ? URL(fileURLWithPath: arguments[i + 1]) : nil))
+}
+if let i = arguments.firstIndex(of: "--drink-gallery"), i + 1 < arguments.count {
+    exit(DrinkGallery.run(output: URL(fileURLWithPath: arguments[i + 1])))
+}
+if arguments.contains("--pomo-check") {
+    exit(PomodoroCheck.run())
 }
 if arguments.contains("--migration-check") {
     exit(MigrationCheck.run())

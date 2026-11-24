@@ -96,7 +96,7 @@ final class AppModel: ObservableObject {
     private weak var rugControl: RugController?
 
     // Kar
-    @Published var snowEnabled: Bool { didSet { d.set(snowEnabled, forKey: "snowEnabled"); snow?.setEnabled(snowEnabled) } }
+    @Published var snowEnabled: Bool { didSet { d.set(snowEnabled, forKey: "snowEnabled"); snow?.setEnabled(snowEnabled && !quietActive) } }
     @Published var snowIntensity: Double { didSet { d.set(snowIntensity, forKey: "snowIntensity"); snow?.setIntensity(snowIntensity) } }
     @Published var snowLimit: Double { didSet { d.set(snowLimit, forKey: "snowLimit"); snow?.setLimit(snowLimit) } }
     @Published var snowPlowEnabled: Bool { didSet { d.set(snowPlowEnabled, forKey: "snowPlowEnabled"); snow?.setPlowEnabled(snowPlowEnabled) } }
@@ -107,6 +107,34 @@ final class AppModel: ObservableObject {
     @Published var holeQuality: String { didSet { d.set(holeQuality, forKey: "holeQuality"); hole?.settings = holeSettings } }
     @Published var holeStripLocation: Bool { didSet { d.set(holeStripLocation, forKey: "holeStripLocation"); hole?.settings = holeSettings } }
     private weak var hole: BlackHoleController?
+    private(set) var quietActive = false
+    private var robotPausedByFocus = false
+    var pomoFocusStarted: Date?
+    /// Son molada toplanmak üzere seçilen görüntüler (testler için).
+    private(set) var lastBreakCleanup: [String]?
+
+    // Pomodoro (mantığı Sources/Pomodoro/PomodoroModel.swift içinde)
+    let pomo: PomodoroManager
+    var pomoAlerts: PomodoroAlerts
+    var pomoListeners: [() -> Void] = []
+    var pomoTransitionListeners: [(PomoTransition) -> Void] = []
+    @Published var pomoEnabled: Bool {
+        didSet { d.set(pomoEnabled, forKey: "pomoEnabled"); if !pomoEnabled { pomo.reset() }; pomoChanged() }
+    }
+    @Published var pomoShowDrink: Bool { didSet { d.set(pomoShowDrink, forKey: "pomoShowDrink"); pomoChanged() } }
+    @Published var pomoDrink: DrinkKind { didSet { d.set(pomoDrink.rawValue, forKey: "pomoDrink"); pomoChanged() } }
+    @Published var pomoFocus: Int { didSet { d.set(pomoFocus, forKey: "pomoFocus"); pomo.durations = pomoDurations; pomoChanged() } }
+    @Published var pomoShort: Int { didSet { d.set(pomoShort, forKey: "pomoShort"); pomo.durations = pomoDurations; pomoChanged() } }
+    @Published var pomoLong: Int { didSet { d.set(pomoLong, forKey: "pomoLong"); pomo.durations = pomoDurations; pomoChanged() } }
+    @Published var pomoCycle: Int { didSet { d.set(pomoCycle, forKey: "pomoCycle"); pomo.durations = pomoDurations; pomoChanged() } }
+    @Published var pomoScale: Double { didSet { d.set(pomoScale, forKey: "pomoScale"); pomoChanged() } }
+    @Published var pomoMenuTimer: Bool { didSet { d.set(pomoMenuTimer, forKey: "pomoMenuTimer"); pomoChanged() } }
+    @Published var pomoEffects: DrinkEffects { didSet { d.set(pomoEffects.rawValue, forKey: "pomoEffects"); pomoChanged() } }
+    @Published var pomoSound: Bool { didSet { d.set(pomoSound, forKey: "pomoSound") } }
+    @Published var pomoNotify: Bool { didSet { d.set(pomoNotify, forKey: "pomoNotify") } }
+    @Published var pomoKeepAwake: Bool { didSet { d.set(pomoKeepAwake, forKey: "pomoKeepAwake"); updateAwake() } }
+    @Published var pomoQuietFocus: Bool { didSet { d.set(pomoQuietFocus, forKey: "pomoQuietFocus"); applyQuiet() } }
+    @Published var pomoCleanOnBreak: Bool { didSet { d.set(pomoCleanOnBreak, forKey: "pomoCleanOnBreak") } }
 
     var holeSettings: HoleSettings {
         HoleSettings(format: HoleSettings.Format(rawValue: holeImageFormat) ?? .jpg,
@@ -138,7 +166,7 @@ final class AppModel: ObservableObject {
         controller.setIntensity(snowIntensity)
         controller.setLimit(snowLimit)
         controller.setPlowEnabled(snowPlowEnabled)
-        controller.setEnabled(snowEnabled)
+        controller.setEnabled(snowEnabled && !quietActive)
     }
     private var rugCoverWork: DispatchWorkItem?
 
@@ -189,6 +217,7 @@ final class AppModel: ObservableObject {
                               "snowEnabled": true, "snowIntensity": 0.5, "snowLimit": 1.0, "snowPlowEnabled": true, "snowSculpt": true, "holeEnabled": true, "holeTrashOriginal": false,
                               "holeImageFormat": "jpg", "holeQuality": "medium", "holeStripLocation": true,
                               "clipEnabled": true, "clipLimit": 200])
+        d.register(defaults: PomoLimits.defaults)
         // Önceki sürümden gelenler de 1 saat kuralına geçsin.
         if !d.bool(forKey: "autoHourV1") {
             d.set(CleanMode.automatic.rawValue, forKey: "mode")
@@ -217,6 +246,28 @@ final class AppModel: ObservableObject {
         holeImageFormat = d.string(forKey: "holeImageFormat") ?? "jpg"
         holeQuality = d.string(forKey: "holeQuality") ?? "medium"
         holeStripLocation = d.bool(forKey: "holeStripLocation")
+        let ps = Self.loadPomoSettings(d)
+        pomoEnabled = ps.enabled
+        pomoShowDrink = ps.showDrink
+        pomoDrink = ps.drink
+        pomoFocus = ps.focus
+        pomoShort = ps.shortBreak
+        pomoLong = ps.longBreak
+        pomoCycle = ps.cycle
+        pomoScale = ps.scale
+        pomoMenuTimer = ps.menuTimer
+        pomoEffects = ps.effects
+        pomoSound = ps.sound
+        pomoNotify = ps.notify
+        pomoKeepAwake = ps.keepAwake
+        pomoQuietFocus = ps.quietFocus
+        pomoCleanOnBreak = ps.cleanOnBreak
+        // Testler gerçek sayaç kaydına, bildirimlere ve güç yönetimine dokunmaz.
+        pomo = PomodoroManager(durations: PomoDurations(focus: TimeInterval(ps.focus * 60), shortBreak: TimeInterval(ps.shortBreak * 60),
+                                                        longBreak: TimeInterval(ps.longBreak * 60), cycle: ps.cycle),
+                               defaults: desktopOverride == nil ? d : nil)
+        pomoAlerts = desktopOverride == nil ? .system()
+            : PomodoroAlerts(notify: { _, _ in }, playSound: { _ in }, keepAwake: FakeKeepAwake())
         protected = Set(d.stringArray(forKey: "protected") ?? [])
         engine = RobotEngine(base: DesktopMap.basePoint(), trash: DesktopMap.stationApproach())
         engine.maxSpeed = speed
@@ -228,6 +279,7 @@ final class AppModel: ObservableObject {
             iconSlider = { FinderIcons.slide($0) }
         }
         wire()
+        connectPomodoro()
     }
 
     // MARK: - Simgelere çarpma
@@ -581,8 +633,51 @@ final class AppModel: ObservableObject {
 
     /// Otomatik modda yalnızca belirlenen süreden eski ve korunmayan görüntüler alınır.
     private func evaluateAuto() {
-        guard mode == .automatic, !engine.isBusy, !launching, !demoRunning else { return }
+        guard mode == .automatic, !engine.isBusy, !launching, !demoRunning, !quietActive else { return }
         let cutoff = Date().addingTimeInterval(-Double(minAge) * 60)
         launch(visibleShots.filter { !protected.contains($0.id) && !autoSkip.contains($0.id) && $0.created <= cutoff })
+    }
+
+    // MARK: - Pomodoro ile senkron
+
+    /// Odak çalışırken (ayar açıksa) kar yağışı durur, robotun görevi duraklar ve otomatik toplama bekler.
+    /// Ayarların kendisi değişmez; odak bitince her şey eski haline döner.
+    func applyQuiet() {
+        let want = pomoEnabled && pomoQuietFocus && pomo.phase == .focus && pomo.running
+        guard want != quietActive else { return }
+        quietActive = want
+        snow?.setEnabled(snowEnabled && !want)
+        if want {
+            if engine.isBusy, !engine.paused {
+                engine.togglePause()
+                robotPausedByFocus = true
+                refreshStatus()
+            }
+        } else {
+            if robotPausedByFocus, engine.paused {
+                engine.togglePause()
+                refreshStatus()
+            }
+            robotPausedByFocus = false
+            evaluateAuto()
+        }
+    }
+
+    /// Mola başlayınca robot, odak sırasında masaüstüne düşen ekran görüntülerini toplar.
+    /// Kilitli ve halının altındaki dosyalar her zamanki gibi dışarıda kalır.
+    func cleanAfterFocus() {
+        guard let start = pomoFocusStarted else { return }
+        let since = start.addingTimeInterval(-5)
+        scan { [weak self] in
+            guard let self else { return }
+            let list = self.visibleShots.filter { !self.protected.contains($0.id) && $0.created >= since }
+            self.lastBreakCleanup = list.map(\.name).sorted()
+            guard !list.isEmpty else { return }
+            if self.engine.isBusy || self.launching {
+                // Robot zaten çalışıyorsa görev bitince otomatik mod devralır.
+                return
+            }
+            self.launch(list, manual: false)
+        }
     }
 }

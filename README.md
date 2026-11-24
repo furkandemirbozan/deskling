@@ -4,7 +4,7 @@
 
 # Deskling
 
-**Masaüstünde yaşayan küçük yardımcın: ekran görüntülerini toplayan robot süpürge, altına dosya saklayabildiğin Türk motifli halı, fareyle kardan adam yapabildiğin gerçekçi kar, dosyaları sıkıştıran bir kara delik, port ve Docker kontrol merkezi ve akıllı pano yöneticisi.**
+**Masaüstünde yaşayan küçük yardımcın: ekran görüntülerini toplayan robot süpürge, altına dosya saklayabildiğin Türk motifli halı, fareyle kardan adam yapabildiğin gerçekçi kar, dosyaları sıkıştıran bir kara delik, port ve Docker kontrol merkezi, akıllı pano yöneticisi ve içeceği gerçekten azalan bir Pomodoro sayacı.**
 
 macOS · Swift · AppKit · SwiftUI · Core Animation · Metal
 
@@ -42,6 +42,7 @@ Masaüstün ekran görüntüleriyle dolduğunda robota çift tıkla. Robot istas
 - **Kara delik:** Sol üst köşedeki kara deliğe dosya bırak: görselleri, PDF'leri ve videoları sıkıştırır, PDF birleştirir, ZIP yapar, arşiv açar, JSON ve CSV dönüştürür.
 - **Portlar ve servisler:** Dinlenen portları gör, tek tıkla tarayıcıda aç ya da kapat, Docker konteynerlerini başlat ve durdur.
 - **Pano yöneticisi:** ⇧⌘V ile kopyalama geçmişine ulaş, klavyeyle seç ve yapıştır.
+- **İçecekli Pomodoro:** Masaüstündeki çay, Türk kahvesi, kahve ya da bira odak süresiyle birlikte azalır, molada yeniden dolar.
 - **Kar topu ve kardan adam:** Biriken karı fareyle yuvarla, topları üst üste koyup süsle. Yüksekten düşen kardan adam kar yığınına döner.
 - **Pil ve şarj:** Pili azalan robot görevine ara verip istasyonda şarj olur, sonra kaldığı yerden devam eder.
 
@@ -220,6 +221,37 @@ Kopyaladığın metinleri, bağlantıları, kod parçalarını ve renk kodların
 
 Otomatik yapıştırma için macOS **Erişilebilirlik** izni ister. İzin yoksa seçtiğin kayıt panoya kopyalanır, ⌘V ile yapıştırırsın. Kısayolu, kayıt sınırını ve izni **Ayarlar > Pano** bölümünden değiştirebilirsin. ⇧⌘V bazı uygulamalarda "Biçimi eşleştirerek yapıştır" kısayoludur; istersen başka bir kısayol seçebilirsin.
 
+## İçecekli Pomodoro
+
+<div align="center">
+<img src="docs/images/icecekler.png" alt="İnce belli çay, Türk kahvesi, seramik kupa ve bira bardağı">
+</div>
+
+Masaüstünde bir içecek durur ve odak süresi boyunca yavaş yavaş azalır. Hepsi kodla çizilir; dışarıdan resim ya da GIF kullanılmaz.
+
+| İçecek | Neler var? |
+| --- | --- |
+| **İnce belli çay** | Tavşan kanı çay, kalın camlı dip, porselen tabak ve kaşık. Buhar süre ilerledikçe incelir, sona doğru kesilir. Süre bitince bardak titrer, kaşık tabakta şıngırdar. |
+| **Türk kahvesi** | Altın yaldızlı, lale motifli fincan. Köpük hafifçe nefes alır; kahve azaldıkça fincanın çeperinde telve izi kalır. |
+| **Kahve** | Mat seramik kupa, koyu kahve, yüzeyde dalgalanan pencere yansıması. Molada akan kahveyle yeniden dolar. |
+| **Bira** | Kehribar bira, kabarık köpük, dipten yükselen baloncuklar, terleyen cam. Her yudum camda ince bir köpük izi bırakır. |
+
+- **Sürükle:** Bardağı tutup taşıdığında sıvı hareketin tersine yığılır, bırakınca yavaşça durulur.
+- **Üzerine gel:** Bardağın altında kalan süre, başlat/duraklat, sıfırla ve atla düğmeleri belirir.
+- **Çift tıkla:** Sayacı başlatır ya da duraklatır.
+- **Sağ tıkla:** İçeceği, boyutu değiştir ya da gizle.
+- **Menü çubuğu:** Sayaç çalışırken içeceğin simgesi ve kalan süre (`24:12`) görünür; simge de süreyle birlikte boşalır.
+- **Döngü:** 25 dakika odak, 5 dakika mola, 4 odakta bir 15 dakika uzun mola. Hepsi değiştirilebilir.
+- **Uyarılar:** Süre bitince macOS bildirimi ve içeceğe yakışan yumuşak bir ses gelir; ikisi de kapatılabilir.
+- **Uyanık tut:** İstersen odak sırasında ekran kararmaz.
+- **Robot ve karla birlikte:** İstersen odakta kar yağışı ve robot duraklar. Molada robot, odak sırasında masaüstüne düşen ekran görüntülerini toplar. Kilitli ve halının altındaki dosyalara dokunmaz.
+
+<div align="center">
+<img src="docs/images/odak.png" width="420" alt="Denetim panelindeki Odak sekmesi">
+</div>
+
+Sayaç uygulama kapanıp açılsa da kaldığı yerden sürer. Animasyon yoğunluğu **Düşük** seçilirse kare hızı ve partikül sayısı azalır.
+
 ## Denetim paneli
 
 <div align="center">
@@ -232,6 +264,8 @@ Panele menü çubuğundaki yuvarlak simgeden ulaşırsın.
 | --- | --- |
 | **Bulunanlar** | Masaüstündeki ekran görüntülerini listeler. Seçtiklerini toplatır, kilitlediklerine robot dokunmaz. |
 | **Geçmiş** | Toplanan her dosyayı gösterir ve tek tıkla masaüstüne geri koyar. |
+| **Portlar** | Dinlenen portlar ve Docker konteynerleri. |
+| **Odak** | Pomodoro sayacı, içecek seçimi, süreler, görünüm ve robot/kar senkronu. |
 | **Ayarlar** | Otomatik toplama süresi, robot hızı, hazne kapasitesi, kar, küreme aracı, halı boyutu, açılışta başlatma ve sesler. |
 
 ## Nasıl çalışır?
@@ -311,6 +345,7 @@ open /Applications/Deskling.app
 | --- | --- |
 | **Masaüstü klasörü** | Ekran görüntülerini bulmak için |
 | **Finder otomasyonu** | Simgelerin yerini öğrenmek ve çarpılan simgeleri kaydırmak için |
+| **Bildirimler** (isteğe bağlı) | Pomodoro süresi bitince haber vermek için |
 | **Erişilebilirlik** (isteğe bağlı) | Pano geçmişinden seçilen kaydı öndeki uygulamaya kendiliğinden yapıştırmak için |
 
 Uygulama yerel olarak imzalandığı için her yeniden derlemeden sonra macOS izinleri yeniden sorabilir.
@@ -360,6 +395,21 @@ Sources/
 │   ├── HotKey.swift            Genel kısayol ve yapıştırma
 │   ├── ClipboardPanel.swift    Yüzer pano penceresi
 │   └── ClipboardCheck.swift    Pano testleri
+├── Pomodoro/
+│   ├── PomodoroManager.swift  Odak, kısa ve uzun mola durum makinesi
+│   ├── PomodoroSettings.swift İçecek temaları, boyutlar ve ayar sınırları
+│   ├── PomodoroModel.swift    Ayarlar, bildirim, ses ve uyanık tutma bağlantısı
+│   ├── PomodoroAlerts.swift   Bildirim, ses ve ekranı uyanık tutma
+│   ├── PomodoroTab.swift      Odak sekmesi
+│   ├── DrinkController.swift  İçecek penceresi, sürükleme, sağ tık menüsü
+│   ├── DrinkView.swift        Katmanlı, düşük yüklü çizim
+│   ├── DrinkControlBar.swift  Üzerine gelince beliren kontrol çubuğu
+│   ├── SloshPhysics.swift     Sıvının çalkalanması
+│   ├── DrinkParticles.swift   Buhar, baloncuk, damla ve köpük izi
+│   ├── DrinkArt.swift         Ortak çizim, önbellek ve dolum akışı
+│   ├── TeaGlass.swift, TurkishCoffee.swift, CoffeeMug.swift, BeerPint.swift  İçecekler
+│   ├── DrinkIcons.swift       Menü çubuğu simgeleri
+│   └── PomodoroCheck.swift, PomodoroSyncCheck.swift, DrinkUICheck.swift  Testler
 ├── BlackHole/
 │   ├── BlackHoleController.swift Kara delik penceresi, sürükle bırak ve animasyonlar
 │   ├── HoleRenderer.swift        Işığı büken diskin Metal çizimi
@@ -430,10 +480,22 @@ Deskling.app/Contents/MacOS/Deskling --clip-check
 Deskling.app/Contents/MacOS/Deskling --migration-check
 ```
 
+```bash
+Deskling.app/Contents/MacOS/Deskling --pomo-check
+```
+
+```bash
+Deskling.app/Contents/MacOS/Deskling --pomo-sync-check
+```
+
+```bash
+Deskling.app/Contents/MacOS/Deskling --drink-ui-check
+```
+
 ## Bilinen sınırlar
 
 - Robot, halı ve kar yalnızca ana ekranda çalışır.
 - Masaüstünde "Izgaraya hizala" veya otomatik sıralama açıksa Finder itilen simgeleri kendi düzenine geri çekebilir.
-- Kar açıkken uygulama işlemcinin yaklaşık %8-10'unu kullanır.
+- Kar açıkken uygulama işlemcinin yaklaşık %8-10'unu kullanır. Masaüstündeki içecek yüksek animasyonda yaklaşık %5, düşükte %2-3 ekler.
 - Derleme betiği yalnızca Apple Silicon (arm64) için paket üretir.
 - Mac açılışında başlatma yalnızca `/Applications` klasöründeki kopyada çalışır.
