@@ -61,7 +61,7 @@ final class IslandController {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.place() }
             .store(in: &bag)
-        manager.settings.$hideFullscreen.removeDuplicates()
+        manager.settings.$fullscreenMode.removeDuplicates()
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.checkFullscreen() }
             .store(in: &bag)
@@ -141,8 +141,8 @@ final class IslandController {
 
     private func checkFullscreen() {
         guard let s = screen else { return }
-        let hide = manager.settings.hideFullscreen && FullscreenDetector.frontIsFullscreen(on: s)
-        if manager.hiddenForFullscreen != hide { manager.hiddenForFullscreen = hide }
+        let full = FullscreenDetector.frontIsFullscreen(on: s)
+        if manager.fullscreen != full { manager.fullscreen = full }
     }
 
     // MARK: - Fare
@@ -164,13 +164,13 @@ final class IslandController {
         setCapture(inside)
         if dragging {
             // Dosya çentiğe sürüklenince raf açılır ve bırakmayı kabul eder.
-            if trigger, manager.settings.isOn(.shelf), !manager.hiddenForFullscreen, Self.dragHasFiles() {
+            if trigger, manager.settings.isOn(.shelf), !quietFullscreen(d), Self.dragHasFiles() {
                 manager.expand(page: .shelf)
                 setCapture(true)
             }
             return
         }
-        guard d != .alert, !manager.hiddenForFullscreen else { return }
+        guard d != .alert, !quietFullscreen(d) else { return }
         hover.delay = manager.settings.hoverDelay
         let expandedRect = IslandLayout.rect(.expanded, g).insetBy(dx: -14, dy: -14)
         let action = hover.update(inTrigger: trigger, inExpanded: expandedRect.contains(p), expanded: manager.expanded,
@@ -185,6 +185,11 @@ final class IslandController {
             hoverWork = w
             DispatchQueue.main.asyncAfter(deadline: .now() + after + 0.01, execute: w)
         }
+    }
+
+    /// Tam ekranda ada boşken fare menü çubuğuna gidince açılmasın.
+    private func quietFullscreen(_ d: IslandDisplay) -> Bool {
+        manager.fullscreen && manager.settings.fullscreenMode != .normal && d == .hidden
     }
 
     private func clickedOutside() {

@@ -70,6 +70,8 @@ final class BlackHoleController: NSObject {
     var onHide: () -> Void = {}
     var trash: (URL) throws -> Void = { try FileManager.default.trashItem(at: $0, resultingItemURL: nil) }
     var onFinished: (HoleResult) -> Void = { _ in }
+    /// Uzun işlerde ilerleme (dinamik ada için).
+    var onProgress: (HoleJob) -> Void = { _ in }
 
     private var hoverMode: HoleMode = .normal
     private var grabStart: (mouse: NSPoint, center: NSPoint)?
@@ -464,6 +466,7 @@ final class BlackHoleController: NSObject {
         guard busy else { return }
         let video = urls.allSatisfy(HoleProcessor.isVideo)
         let title = (video ? "Video işleniyor" : "İşleniyor") + " · %\(min(99, percent))"
+        onProgress(HoleJob(title: video ? "Video işleniyor" : "İşleniyor", percent: min(99, percent)))
         let text = NSAttributedString(string: title, attributes: [
             .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold), .foregroundColor: NSColor.white,
         ])

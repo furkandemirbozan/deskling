@@ -89,9 +89,19 @@ enum IslandCheck {
         m.settings.enabled = false
         check("ada kapatılınca gizlenir", m.display == .hidden)
         m.settings.enabled = true
-        m.hiddenForFullscreen = true
-        check("tam ekranda gizlenir", m.display == .hidden)
-        m.hiddenForFullscreen = false
+        m.fullscreen = true
+        check("tam ekranda süren etkinlik görünür", m.display == .compact(.live(.robot)))
+        m.settings.fullscreenMode = .hidden
+        check("'tamamen gizle' seçiliyse tam ekranda gizlenir", m.display == .hidden)
+        m.settings.fullscreenMode = .activities
+        m.setRobot(busy: false, title: "", detail: "")
+        check("tam ekranda boş ada görünmez", m.display == .hidden)
+        m.settings.fullscreenMode = .normal
+        check("'her zamanki gibi' seçiliyse tam ekranda da durur", m.display == .closed)
+        m.settings.fullscreenMode = .activities
+        m.fullscreen = false
+        check("tam ekrandan çıkınca boş ada yine görünür", m.display == .closed)
+        m.setRobot(busy: true, title: "Süpürüyor", detail: "3 görüntü kaldı")
         m.geometry = IslandGeometry.make(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080), left: nil, right: nil, safeTop: 0, menuBar: 25)
         m.setRobot(busy: false, title: "", detail: "")
         check("çentiksiz ekranda boşken görünmez", m.display == .hidden)
@@ -124,7 +134,62 @@ enum IslandCheck {
         check("olaysız pil güncellemesi bildirimi değiştirmez", m.transient != nil && m.power?.percent == 64)
         m.robotFinished(collected: 0)
         m.robotFinished(collected: 3)
-        check("robot raporu", m.transient == .robot("3 görüntü toplandı"))
+        check("robot raporu", m.transient == .robot("3 ekran görüntüsü kutuya alındı"))
+
+        // Kara delik
+        m.holeFinished(title: "Kısa iş", ok: true)
+        check("kısa kara delik işi adayı açmaz", m.transient == .robot("3 ekran görüntüsü kutuya alındı"))
+        m.setHole(HoleJob(title: "Video işleniyor", percent: 42))
+        check("video ilerlemesi adada akar", m.liveActivities.contains(.hole) && m.hole?.percent == 42)
+        m.holeFinished(title: "Video sıkıştırıldı", ok: true)
+        check("bitince sonuç söylenir", m.hole == nil && m.transient == .hole("Video sıkıştırıldı", ok: true))
+        m.settings.set(.blackHole, false)
+        m.setHole(HoleJob(title: "Video işleniyor", percent: 10))
+        check("kara delik etkinliği kapatılabilir", !m.liveActivities.contains(.hole))
+        m.setHole(nil)
+        m.settings.set(.blackHole, true)
+
+        // Bellek ve disk uyarıları
+        let gb: UInt64 = 1 << 30
+        func stats(_ pressure: Int, used: UInt64 = 8, swap: UInt64 = 0) -> MemoryStats {
+            MemoryStats(total: 16 * gb, app: used * gb, wired: gb, compressed: gb, cached: gb, swapUsed: swap * gb, pressure: pressure)
+        }
+        var heavy = AppMemory(pid: 1, name: "Tarayıcı", bundleID: "x", footprint: 3 * gb); heavy.verdict = .remove
+        check("normal bellekte uyarı yok", HealthRules.evaluate(memory: stats(1), volume: nil).isEmpty)
+        let warn = HealthRules.evaluate(memory: stats(2), volume: nil, suggested: [heavy])
+        check("bellek baskısı uyarısı ve önerisi", warn.first?.kind == .memory && warn.first?.level == .warning
+              && warn.first?.action == "Belleği temizle" && warn.first?.body.contains("Tarayıcı") == true, warn.first?.body ?? "")
+        check("kritik bellek", HealthRules.evaluate(memory: stats(4), volume: nil).first?.level == .critical)
+        check("öneri yoksa Bellek sayfasına yönlendirir", HealthRules.evaluate(memory: stats(2), volume: nil).first?.action == "Bellek sayfası")
+        let G: Int64 = 1_000_000_000
+        func vol(_ free: Int64) -> VolumeInfo { VolumeInfo(total: 500 * G, available: free * G, free: free * G) }
+        check("disk boşken uyarı yok", HealthRules.evaluate(memory: nil, volume: vol(120)).isEmpty)
+        check("disk azalınca uyarı", HealthRules.evaluate(memory: nil, volume: vol(12)).first.map { $0.kind == .disk && $0.level == .warning } == true)
+        check("disk dolunca kritik ve önce gelir", HealthRules.evaluate(memory: stats(2), volume: vol(3)).first.map { $0.kind == .disk && $0.level == .critical } == true)
+
+        m.dismissAlert()
+        clock.advance(5)
+        m.tick()
+        m.setHealth(HealthRules.evaluate(memory: stats(2), volume: nil, suggested: [heavy]))
+        check("uyarı kulakta belirir, ada kendiliğinden açılmaz", m.display == .compact(.live(.health)) && m.alert == nil)
+        m.showHealthAlert()
+        check("tıklayınca tek tıklık eylemle açılır", m.alert?.action == "Belleği temizle" && m.display == .alert)
+        var acted: [HealthWarning.Kind] = []
+        m.onHealthAction = { acted.append($0) }
+        m.performHealthAction()
+        check("eylem çalışır ve uyarı 10 dk susar", acted == [.memory] && m.alert == nil && m.visibleHealth == nil)
+        clock.advance(11 * 60)
+        check("10 dk sonra yine görünür", m.visibleHealth?.kind == .memory)
+        m.setHealth(HealthRules.evaluate(memory: stats(2), volume: vol(3)))
+        check("kritik disk adayı bir kez kendiliğinden açar", m.alert.map { if case .health(.disk, .critical) = $0.kind { return true }; return false } == true)
+        m.snoozeHealth()
+        m.setHealth(HealthRules.evaluate(memory: stats(2), volume: vol(3)))
+        check("'sonra' denince aynı uyarı tekrar açılmaz", m.alert == nil && m.visibleHealth?.kind == .memory)
+        m.settings.set(.health, false)
+        check("uyarılar kapatılabilir", !m.liveActivities.contains(.health))
+        m.settings.set(.health, true)
+        m.setHealth([])
+        check("sorun geçince uyarı kalkar", m.visibleHealth == nil)
     }
 
     private static func timers() {
@@ -418,6 +483,20 @@ enum IslandGallery {
         shelf.expand(page: .shelf)
         out.append(("9-acik-raf", shelf))
         let alert = base(); alert.startTimer(seconds: 1); clock.advance(2); alert.tick(); out.append(("10-uyari", alert))
+        let hole = base(); hole.setHole(HoleJob(title: "Video işleniyor", percent: 64)); out.append(("11-kara-delik", hole))
+        let holeDone = base(); holeDone.setHole(HoleJob(title: "Video işleniyor", percent: 99)); holeDone.holeFinished(title: "Video 1,2 GB → 180 MB", ok: true)
+        out.append(("12-kara-delik-bitti", holeDone))
+        let robot = base(); robot.robotFinished(collected: 4); out.append(("13-robot-ozet", robot))
+        let gb: UInt64 = 1 << 30
+        var heavy = AppMemory(pid: 1, name: "Tarayıcı", bundleID: "x", footprint: 3 * gb); heavy.verdict = .remove
+        var code = AppMemory(pid: 2, name: "Kod Düzenleyici", bundleID: "y", footprint: 2 * gb); code.verdict = .remove
+        let mem = MemoryStats(total: 16 * gb, app: 11 * gb, wired: 2 * gb, compressed: 2 * gb, cached: gb, swapUsed: 3 * gb, pressure: 2)
+        let warn = withMusic(base()); warn.setHealth(HealthRules.evaluate(memory: mem, volume: nil, suggested: [heavy, code])); out.append(("14-bellek-kulak", warn))
+        let warnAlert = base(); warnAlert.setHealth(HealthRules.evaluate(memory: mem, volume: nil, suggested: [heavy, code])); warnAlert.showHealthAlert()
+        out.append(("15-bellek-uyari", warnAlert))
+        let diskAlert = base()
+        diskAlert.setHealth(HealthRules.evaluate(memory: nil, volume: VolumeInfo(total: 500_000_000_000, available: 3_400_000_000, free: 3_000_000_000)))
+        out.append(("16-disk-uyari", diskAlert))
         return out
     }
 

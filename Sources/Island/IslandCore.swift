@@ -85,10 +85,12 @@ enum IslandLayout {
 // MARK: - Görünüm durumları
 
 enum LiveActivity: String, Equatable, CaseIterable {
-    case timer, pomodoro, media, stopwatch, robot
+    case health, timer, hole, pomodoro, media, stopwatch, robot
 
     var feature: IslandFeature {
         switch self {
+        case .health: return .health
+        case .hole: return .blackHole
         case .timer: return .timer
         case .pomodoro: return .pomodoro
         case .media: return .media
@@ -101,6 +103,8 @@ enum LiveActivity: String, Equatable, CaseIterable {
         switch self {
         case .media: return 58
         case .robot: return 84
+        case .hole: return 80
+        case .health: return 76
         default: return 72
         }
     }
@@ -113,9 +117,11 @@ enum IslandTransientKind: Equatable {
     case clipboard(ClipKind, String)
     case robot(String)
     case shelf(Int)
+    case hole(String, ok: Bool)
 
     var feature: IslandFeature {
         switch self {
+        case .hole: return .blackHole
         case .power: return .battery
         case .volume: return .volume
         case .device: return .device
@@ -131,8 +137,9 @@ enum IslandTransientKind: Equatable {
         case .volume: return 90
         case .device: return 128
         case .clipboard: return 104
-        case .robot: return 128
+        case .robot: return 200
         case .shelf: return 92
+        case .hole: return 190
         }
     }
 
@@ -145,6 +152,7 @@ enum IslandTransientKind: Equatable {
         case .clipboard: return "clipboard"
         case .robot: return "robot"
         case .shelf: return "shelf"
+        case .hole: return "hole"
         }
     }
 }
@@ -199,12 +207,88 @@ enum IslandPage: String, CaseIterable, Identifiable {
 }
 
 struct IslandAlert: Equatable {
-    enum Kind: Equatable { case timer(TimeInterval), pomodoro(PomoPhase) }
+    enum Kind: Equatable { case timer(TimeInterval), pomodoro(PomoPhase), health(HealthWarning.Kind, HealthWarning.Level) }
     var kind: Kind
     var title: String
     var body: String
     var symbol: String
     var until: Date?
+    /// Tek tıklık eylem düğmesinin yazısı (ör. "Belleği temizle").
+    var action: String? = nil
+}
+
+/// Kara delikte süren uzun iş (video sıkıştırma gibi).
+struct HoleJob: Equatable {
+    var title: String
+    var percent: Int
+}
+
+/// Bellek ya da disk sıkışınca adada beliren uyarı.
+struct HealthWarning: Equatable {
+    enum Kind: String, Equatable, CaseIterable { case memory, disk }
+    enum Level: Int, Comparable {
+        case warning = 1, critical = 2
+        static func < (a: Self, b: Self) -> Bool { a.rawValue < b.rawValue }
+    }
+    var kind: Kind
+    var level: Level
+    /// Kulakta görünen kısa yazı.
+    var short: String
+    var title: String
+    var body: String
+    var action: String
+
+    var symbol: String { kind == .memory ? "memorychip.fill" : "internaldrive.fill" }
+}
+
+/// Ne zaman uyarılır? Saf; sayaçlar dışarıdan verilir.
+enum HealthRules {
+    static let gb: Int64 = 1_000_000_000
+    static let diskWarning: Int64 = 15 * gb
+    static let diskCritical: Int64 = 5 * gb
+
+    static func evaluate(memory: MemoryStats?, volume: VolumeInfo?, suggested: [AppMemory] = []) -> [HealthWarning] {
+        var out: [HealthWarning] = []
+        if let m = memory {
+            let level: HealthWarning.Level? = m.pressure >= 4 ? .critical
+                : (m.pressure >= 2 || (m.usedFraction >= 0.9 && m.swapUsed >= 6 << 30)) ? .warning : nil
+            if let level {
+                let freed = suggested.reduce(UInt64(0)) { $0 + $1.footprint }
+                let names = suggested.prefix(3).map(\.name)
+                let body = suggested.isEmpty
+                    ? "Kapatılabilecek ağır bir uygulama yok. Bellek sayfasından hangi uygulamanın ne kadar kullandığına bakabilirsin."
+                    : "\(ListFormatter.localizedString(byJoining: names))\(suggested.count > 3 ? " +\(suggested.count - 3)" : "") kapanırsa ~\(DiskFormat.bytes(Int64(freed))) boşalır."
+                out.append(HealthWarning(kind: .memory, level: level, short: "RAM %\(Int((m.usedFraction * 100).rounded()))",
+                                         title: level == .critical ? "Bellek tükeniyor" : "Bellek sıkıştı",
+                                         body: body, action: suggested.isEmpty ? "Bellek sayfası" : "Belleği temizle"))
+            }
+        }
+        if let v = volume, v.total > 0 {
+            let free = v.available
+            let level: HealthWarning.Level? = free < diskCritical ? .critical
+                : (free < diskWarning || Double(free) / Double(v.total) < 0.05) ? .warning : nil
+            if let level {
+                out.append(HealthWarning(kind: .disk, level: level, short: DiskFormat.bytes(free).replacingOccurrences(of: ",0", with: ""),
+                                         title: level == .critical ? "Disk dolmak üzere" : "Disk azalıyor",
+                                         body: "Yalnızca \(DiskFormat.bytes(free)) boş kaldı. Neyin silinebileceğine bak.",
+                                         action: "Diski incele"))
+            }
+        }
+        return out.sorted { $0.level > $1.level }
+    }
+}
+
+/// Tam ekran bir uygulama öndeyken ada ne yapsın?
+enum FullscreenMode: String, CaseIterable, Identifiable {
+    case normal, activities, hidden
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .normal: return "Her zamanki gibi"
+        case .activities: return "Yalnızca etkinlik ve uyarılar"
+        case .hidden: return "Tamamen gizle"
+        }
+    }
 }
 
 struct RobotStatus: Equatable {
@@ -223,11 +307,13 @@ struct RobotStatus: Equatable {
 // MARK: - Ayarlar
 
 enum IslandFeature: String, CaseIterable, Identifiable {
-    case media, pomodoro, timer, stopwatch, robot, battery, volume, device, clipboard, shelf
+    case media, pomodoro, timer, stopwatch, robot, blackHole, health, battery, volume, device, clipboard, shelf
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .blackHole: return "Kara delik"
+        case .health: return "Bellek ve disk uyarıları"
         case .media: return "Şu an çalan"
         case .pomodoro: return "Pomodoro"
         case .timer: return "Zamanlayıcı"
@@ -243,6 +329,8 @@ enum IslandFeature: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
+        case .blackHole: return "circle.dashed"
+        case .health: return "exclamationmark.triangle.fill"
         case .media: return "music.note"
         case .pomodoro: return "cup.and.saucer.fill"
         case .timer: return "timer"
@@ -262,7 +350,9 @@ enum IslandFeature: String, CaseIterable, Identifiable {
         case .pomodoro: return "Odak ve mola süresi kulakta görünür"
         case .timer: return "Geri sayım; bitince ada açılır ve ses çalar"
         case .stopwatch: return "Tur kaydeden kronometre"
-        case .robot: return "Robot toplarken kalan görüntü sayısı"
+        case .robot: return "Robot toplarken kalan görüntü sayısı, bitince özet"
+        case .blackHole: return "Uzun işlerde (video sıkıştırma gibi) ilerleme, bitince sonuç"
+        case .health: return "Bellek baskısı artınca ya da disk dolunca tek tıkla temizlik"
         case .battery: return "Şarja takınca, çıkarınca ve pil azalınca"
         case .volume: return "Ses açılıp kısılınca ince bir çubuk"
         case .device: return "AirPods ya da hoparlör değişince"
@@ -275,7 +365,7 @@ enum IslandFeature: String, CaseIterable, Identifiable {
 final class IslandSettings: ObservableObject {
     static let defaults: [String: Any] = [
         "islandEnabled": true, "islandHoverOpen": true, "islandHoverDelay": 0.15, "islandHaptics": true,
-        "islandNoNotch": false, "islandHideFullscreen": true, "islandSecondary": true, "islandTimerSound": true,
+        "islandNoNotch": false, "islandFullscreenMode": FullscreenMode.activities.rawValue, "islandSecondary": true, "islandTimerSound": true,
         "islandOff": [String](), "islandCustomMinutes": 20,
     ]
     static let hoverDelayRange = 0.0...0.8
@@ -288,7 +378,7 @@ final class IslandSettings: ObservableObject {
     @Published var hoverDelay: Double { didSet { put(hoverDelay, "islandHoverDelay") } }
     @Published var haptics: Bool { didSet { put(haptics, "islandHaptics") } }
     @Published var noNotch: Bool { didSet { put(noNotch, "islandNoNotch") } }
-    @Published var hideFullscreen: Bool { didSet { put(hideFullscreen, "islandHideFullscreen") } }
+    @Published var fullscreenMode: FullscreenMode { didSet { put(fullscreenMode.rawValue, "islandFullscreenMode") } }
     @Published var secondary: Bool { didSet { put(secondary, "islandSecondary") } }
     @Published var timerSound: Bool { didSet { put(timerSound, "islandTimerSound") } }
     @Published var customMinutes: Int { didSet { put(customMinutes, "islandCustomMinutes") } }
@@ -305,7 +395,7 @@ final class IslandSettings: ObservableObject {
         hoverDelay = min(Self.hoverDelayRange.upperBound, max(0, store?.double(forKey: "islandHoverDelay") ?? 0.15))
         haptics = b("islandHaptics")
         noNotch = b("islandNoNotch")
-        hideFullscreen = b("islandHideFullscreen")
+        fullscreenMode = FullscreenMode(rawValue: store?.string(forKey: "islandFullscreenMode") ?? "") ?? .activities
         secondary = b("islandSecondary")
         timerSound = b("islandTimerSound")
         customMinutes = min(Self.minutesRange.upperBound, max(1, store?.integer(forKey: "islandCustomMinutes") ?? 20))

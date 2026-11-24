@@ -25,8 +25,9 @@ final class AppModel: ObservableObject {
 
     /// Portlar sekmesi: dinlenen portlar ve Docker konteynerleri.
     let dev = DevCenter()
-    let disk = DiskCenter()
+    let disk = DiskCenter.live()
     let memory = MemoryCenter()
+    var healthTimer: Timer?
 
     // Pano
     let clipboard: ClipboardStore
@@ -161,7 +162,11 @@ final class AppModel: ObservableObject {
         }
         h.onTrashOriginalChange = { [weak self] in self?.holeTrashOriginal = $0 }
         h.onHide = { [weak self] in self?.holeEnabled = false }
-        h.onFinished = { [weak self] r in if r.ok { self?.play(r.consumed ? "Submarine" : "Funk") } else { self?.play("Basso") } }
+        h.onFinished = { [weak self] r in
+            if r.ok { self?.play(r.consumed ? "Submarine" : "Funk") } else { self?.play("Basso") }
+            self?.island.holeFinished(title: r.title, ok: r.ok)
+        }
+        h.onProgress = { [weak self] job in self?.island.setHole(job) }
         h.setVisible(holeEnabled)
     }
 

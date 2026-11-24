@@ -106,6 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         island = IslandController(manager: model.island)
         model.memory.startTracking()
+        model.startHealthWatch()
 
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         status.button?.image = NSImage(systemSymbolName: "circle.circle.fill", accessibilityDescription: AppInfo.name)

@@ -33,4 +33,44 @@ extension AppModel {
             }
             .store(in: &islandBag)
     }
+
+    /// Bellek ve diski yarım dakikada bir yoklar; sıkışınca adada uyarı belirir.
+    func startHealthWatch() {
+        guard healthTimer == nil else { return }
+        let tick = { [weak self] in
+            guard let self else { return }
+            let memory = self.memory
+            DispatchQueue.global(qos: .utility).async {
+                let stats = MemoryStats.read(), volume = VolumeInfo.read()
+                // Bellek sıkışıksa hangi uygulamaların kapatılabileceğini de hesapla.
+                let tight = stats.map { $0.pressure >= 2 || $0.usedFraction >= 0.9 } ?? false
+                let apps = tight ? MemoryCenter.liveApps() : nil
+                let playing = tight ? (AudioActivity.playingBundles() ?? []) : []
+                DispatchQueue.main.async {
+                    if let apps { memory.apply(stats: stats, apps: apps, playing: playing) }
+                    self.island.setHealth(HealthRules.evaluate(memory: stats, volume: volume, suggested: memory.suggested))
+                }
+            }
+        }
+        let t = Timer(timeInterval: 30, repeats: true) { _ in tick() }
+        RunLoop.main.add(t, forMode: .common)
+        healthTimer = t
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { tick() }
+        island.onHealthAction = { [weak self] kind in
+            guard let self else { return }
+            switch kind {
+            case .memory:
+                if self.memory.suggested.isEmpty { self.openPanel(.disk, page: "memory") } else { self.memory.quit(self.memory.suggested) }
+            case .disk:
+                self.openPanel(.disk, page: "disk")
+                if !self.disk.scanned, self.disk.scanning == nil { self.disk.scan() }
+            }
+        }
+    }
+
+    func openPanel(_ tab: PanelTab, page: String? = nil) {
+        if let page { UserDefaults.standard.set(page, forKey: "diskTabPage") }
+        panelTab = tab
+        onNeedsPanel?()
+    }
 }

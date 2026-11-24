@@ -108,8 +108,15 @@ struct DiskItem: Identifiable, Equatable {
     var newest = false
     var verdict: DiskVerdict = .review
     var reasons: [String] = []
+    /// Docker öğesi: silmek için çalıştırılacak `docker` komutu. Bunlar Çöp Kutusu'na gitmez, kalıcı silinir.
+    var dockerArgs: [String]? = nil
+    var dockerCount = 0
+    var dockerVolume = false
+    /// Projede derleme ya da kurulumla yeniden oluşan klasör (bin, obj, node_modules).
+    var projectLeftover = false
 
-    var id: String { url.path }
+    var id: String { dockerArgs != nil ? url.absoluteString : url.path }
+    var isDocker: Bool { dockerArgs != nil }
     /// Yalnızca gerekli olmayanlar Çöp Kutusu'na taşınabilir; Çöp Kutusu'nun kendisi taşınmaz.
     var canTrash: Bool { verdict != .keep && kind != .trash && !protected }
 }
@@ -199,6 +206,21 @@ enum DiskAdvisor {
             if let d = usedDays, d < 7 { set(.review); r.append("Son \(max(d, 1)) günde yazıldı") }
             else { set(.remove); r.append("Eski günlük"); if let d = usedDays { r.append("\(span(d)) önce") } }
 
+        case .developer where i.isDocker:
+            r.append(contentsOf: dockerJudgement(&i))
+            r.append("Kalıcı silinir, Çöp Kutusu'na gitmez")
+
+        case .developer where i.projectLeftover:
+            let node = i.url.lastPathComponent == "node_modules"
+            let limit = node ? 60 : 14
+            if let d = usedDays, d < limit {
+                set(.review); r.append(node ? "Proje son \(max(d, 1)) günde kullanıldı" : "Son \(max(d, 1)) günde derlendi")
+            } else {
+                set(.remove)
+                r.append(node ? "npm install ile geri gelir" : "Derleme çıktısı; proje derlenince yeniden oluşur")
+                if let d = usedDays { r.append("\(since(d)) dokunulmadı") }
+            }
+
         case .developer:
             let name = i.url.path
             if i.url.lastPathComponent == ".cache" {
@@ -238,6 +260,22 @@ enum DiskAdvisor {
         }
         i.reasons = r
         return i
+    }
+
+    private static func dockerJudgement(_ i: inout DiskItem) -> [String] {
+        let n = i.dockerCount
+        switch i.url.host ?? "" {
+        case "images-dangling":
+            i.verdict = .remove; return ["\(n) eski imaj katmanı, hiçbir etiketi kalmamış"]
+        case "build-cache":
+            i.verdict = .remove; return ["Derleme önbelleği; gerekince yeniden oluşur"]
+        case "images-unused":
+            i.verdict = .review; return ["\(n) imajı hiçbir konteyner kullanmıyor; gerekirse yeniden indirilir"]
+        case "containers-stopped":
+            i.verdict = .review; return ["\(n) durmuş konteyner; içlerinde yapılan değişiklikler gider"]
+        default:
+            i.verdict = .review; return ["Hiçbir konteynere bağlı değil; veritabanı gibi veri içerebilir"]
+        }
     }
 
     static func protectionReason(_ i: DiskItem) -> String {

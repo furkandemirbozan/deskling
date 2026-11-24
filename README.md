@@ -272,6 +272,8 @@ MacBook'un çentiği, iPhone'daki gibi canlı bir adaya dönüşür. Ada çentik
 | **Zamanlayıcı** | Azalan halka ve kalan süre |
 | **Kronometre** | Geçen süre |
 | **Robot** | Toplanacak kaç görüntü kaldığı |
+| **Kara delik** | Video sıkıştırma gibi uzun işlerde dönen kara delik ve yüzde |
+| **Bellek ve disk uyarısı** | Bellek baskısı artınca "RAM %94", disk azalınca kalan yer. Tıklayınca tek tıklık temizlik sunar |
 
 **Kısa bildirimler.** Birkaç saniye görünüp kaybolur:
 
@@ -279,7 +281,8 @@ MacBook'un çentiği, iPhone'daki gibi canlı bir adaya dönüşür. Ada çentik
 - Ses açılıp kısılınca ince bir ses çubuğu
 - AirPods, kulaklık ya da hoparlör değişince aygıtın adı ve simgesi
 - Bir şey kopyalanınca "Kopyalandı"
-- Robot görevi bitince kaç görüntü topladığı
+- Robot görevi bitince "4 ekran görüntüsü kutuya alındı"
+- Kara delikteki uzun iş bitince sonucu, örneğin "Video 1,2 GB → 180 MB"
 
 **Tarayıcıdaki müzik.** YouTube Music, YouTube, Spotify, SoundCloud, Apple Music, Deezer ve Tidal sekmeleri okunur; başka sekmelere bakılmaz. Çalıp çalmadığı sistemin ses bilgisinden anlaşılır.
 
@@ -297,7 +300,17 @@ MacBook'un çentiği, iPhone'daki gibi canlı bir adaya dönüşür. Ada çentik
 | **Zamanlayıcı** | 1–60 dakikalık hazır süreler ya da kendi süren; duraklat, +1 dk, +5 dk. Yanında turlu kronometre. Süre dolunca ada açılır, ses çalar; **+5 dk** ile ertelenebilir. |
 | **Raf** | Dosyaları çentiğe sürükleyip bırak. Rafta bekler, istediğin yere sürükleyip çıkarırsın. AirDrop ile gönder, Finder'da göster. Dosyalar taşınmaz, kopyalanmaz; raf yalnızca yerlerini hatırlar. |
 
-Pomodoro'da odak ya da mola bitince ada kısa bir uyarıyla açılır. Tam ekran uygulamalarda ada gizlenir. Açılırken trackpad hafifçe titrer.
+Pomodoro'da odak ya da mola bitince ada kısa bir uyarıyla açılır. Açılırken trackpad hafifçe titrer.
+
+**Tam ekranda.** Tam ekran bir uygulamada masaüstündeki robot, içecek ve kara delik görünmez. Ada bu sırada bildirim merkezi gibi çalışır. Boşken görünmez ve fare menü çubuğuna gidince açılmaz. Süren etkinlikler, kısa bildirimler ve uyarılar yine çentikte belirir. Ada sekmesinden "her zamanki gibi" ya da "tamamen gizle" de seçilebilir.
+
+**Bellek ve disk uyarıları.** Deskling yarım dakikada bir bellek baskısına ve boş disk alanına bakar. Uyarı şu durumlarda çıkar:
+
+- macOS bellek baskısını "yüksek" bildirirse.
+- Bellek neredeyse doluyken takas 6 GB'ı geçerse.
+- Diskte 15 GB'tan ya da %5'ten az yer kalırsa.
+
+Uyarı çıkınca kulakta küçük bir gösterge belirir. Göstergeye tıklayınca uyarı açılır. Bellek uyarısında kapatılabilecek uygulamaların adı ve ne kadar yer açılacağı yazar; **Belleği temizle** düğmesi bu uygulamaları nazikçe kapatır. Disk uyarısındaki **Diski incele** düğmesi Disk sekmesini açar ve taramayı başlatır. **Sonra** düğmesi uyarıyı bir saat susturur. Durum kritikleşirse, yani bellek baskısı "kritik" olursa ya da diskte 5 GB'tan az yer kalırsa, ada saatte en fazla bir kez kendiliğinden açılır.
 
 Panelin **Ada** sekmesinden adanın tamamı ya da her etkinlik tek tek kapatılabilir. Açılma gecikmesi, ikinci etkinlik baloncuğu, dokunsal geri bildirim, tam ekranda gizlenme ve zamanlayıcı sesi de buradan ayarlanır. Zamanlayıcı menü çubuğundaki simgeden de başlatılabilir.
 
@@ -312,7 +325,7 @@ Panelin **Disk** sekmesi diskte neyin yer kapladığını bölüm bölüm göste
 | Uygulamalar | Son açılma tarihi, kaç kez açıldığı, ne zamandır yüklü olduğu, şu an açık olup olmadığı |
 | Önbellekler | Son değişiklik, sahibi olan uygulamanın açık olup olmadığı; silinse de yeniden oluşur |
 | Günlükler | Ne kadar eski olduğu |
-| Geliştirici | Xcode DerivedData, simülatör önbellekleri, cihaz destek dosyaları, npm ve Gradle önbellekleri |
+| Geliştirici | Xcode DerivedData, simülatör önbellekleri, cihaz destek dosyaları; npm, NuGet, pnpm, Yarn ve Gradle önbellekleri; projelerdeki .NET bin/obj ve node_modules klasörleri; Docker artıkları |
 | İndirilenler | Kurulum dosyaları (.dmg, .pkg, .zip…) ve ne zamandır açılmadığı |
 | Büyük dosyalar | Belgeler, Masaüstü, Filmler, Müzik ve Resimler'deki 500 MB'tan büyük dosyalar |
 | iPhone yedekleri | Yedeğin tarihi; en yenisi her zaman korunur |
@@ -341,6 +354,21 @@ Panelin **Disk** sekmesi diskte neyin yer kapladığını bölüm bölüm göste
 - **Kişisel büyük dosyalar** hiçbir zaman "silinebilir" sayılmaz; kararı sana bırakılır.
 
 Her satırda kararın gerekçesi yazar, örneğin "10 ay önce kullanıldı · 4 kez açıldı · 1 yıldır yüklü". **Önerilenleri seç** yalnızca silinebilirleri seçer.
+
+**Geliştirici temizliği.** Geliştirici bölümünün başındaki **Tek tıkla temizle** düğmesi yalnızca "silinebilir" olanları temizler:
+
+- 14 gündür derlenmemiş .NET `bin` ve `obj` klasörleri. Yalnızca yanında `.csproj` olan klasörlere bakılır.
+- 60 gündür dokunulmamış projelerin `node_modules` klasörü.
+- Eski DerivedData ve paket önbellekleri.
+- Docker'da etiketsiz imajlar ve kullanılmayan derleme önbelleği.
+
+Docker'daki şu artıklar "gözden geçir" olarak listelenir ve tek tıkla temizliğe girmez; tek tek silinebilirler:
+
+- Kullanılmayan imajlar.
+- Durmuş konteynerler.
+- Hiçbir konteynere bağlı olmayan birimler. Bunlar veritabanı verisi içerebilir.
+
+Klasörler Çöp Kutusu'na taşınır. Docker artıkları Çöp Kutusu'na gidemediği için `docker` komutuyla kalıcı silinir; onay penceresi bunu ayrıca söyler.
 
 **Silme.** Silmek her zaman onay ister ve dosyaları Çöp Kutusu'na taşır; kalıcı silme yoktur, Çöp Kutusu'ndan geri alınabilir. Yer, Çöp Kutusu Finder'dan boşaltılınca açılır. Taşıma anında açık olan uygulama taşınmaz.
 
@@ -536,6 +564,7 @@ Sources/
 │   ├── DiskScanner.swift       Salt okunur tarama ve Çöp Kutusu'na taşıma
 │   ├── MemoryCenter.swift      Bellek sayaçları, uygulamaların belleği ve kapatma önerileri
 │   ├── DiskViews.swift         Disk sekmesi, halka grafik ve parça çubuğu
+│   ├── DevCleanup.swift        Docker artıkları, bin/obj ve node_modules taraması
 │   └── DiskCheck.swift         Testler, salt okunur rapor ve görsel galeri
 ├── BlackHole/
 │   ├── BlackHoleController.swift Kara delik penceresi, sürükle bırak ve animasyonlar
@@ -631,7 +660,7 @@ Deskling.app/Contents/MacOS/Deskling --rug-lock-check
 Deskling.app/Contents/MacOS/Deskling --disk-check
 ```
 
-`--disk-check`, sahte bir ev klasöründe tarar. Çöp Kutusu'na taşımayı da sahte bir klasörle dener. Gerçek dosyalara ve uygulamalara dokunmaz.
+`--disk-check`, sahte bir ev klasöründe ve sahte Docker çıktısıyla tarar. Çöp Kutusu'na taşımayı da sahte bir klasörle dener. Gerçek dosyalara ve uygulamalara dokunmaz.
 
 Gerçek diskte yalnızca okuyarak bir özet görmek için şunu kullan; uygulamalar, önbellekler, günlükler ve bellek listelenir:
 

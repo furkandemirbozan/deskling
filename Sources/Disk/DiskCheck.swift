@@ -112,6 +112,21 @@ enum DiskCheck {
         scanner.runningBundles = { ["com.example.run"] }
         scanner.protectedPaths = [home.appendingPathComponent("Library/Application Support/Deskling").path]
         scanner.largeThreshold = 2 * Int64(mb)
+        // Sahte Docker: gerçek Docker'a asla bakılmaz.
+        let dockerFake = """
+        {"Images":[{"Containers":"0","Repository":"<none>","UniqueSize":"1.5GB","Size":"1.5GB"},{"Containers":"0","Repository":"eski","UniqueSize":"700MB"},{"Containers":"2","Repository":"postgres","UniqueSize":"600MB"}],
+         "Containers":[{"State":"exited","Status":"Exited (0) 3 days ago","Size":"12MB"},{"State":"running","Status":"Up 2 hours","Size":"5MB"}],
+         "Volumes":[{"Name":"proje_pgdata","Links":"0","Size":"800MB"},{"Name":"kullanilan","Links":"1","Size":"2GB"}],
+         "BuildCache":[{"InUse":false,"Size":"2.1GB"},{"InUse":true,"Size":"300MB"},{"InUse":"true","Size":"1GB"}]}
+        """
+        scanner.dockerJSON = { dockerFake }
+        file("Projeler/Api/Api.csproj", 10, age: 40)
+        file("Projeler/Api/bin/Debug/api.dll", 2 * mb, age: 40); dirAge("Projeler/Api/bin/Debug", 40); dirAge("Projeler/Api/bin", 40)
+        file("Projeler/Api/obj/project.assets.json", 2 * mb, age: 2)
+        file("Projeler/Web/package.json", 10, age: 200); dirAge("Projeler/Web", 200)
+        file("Projeler/Web/node_modules/lib/index.js", 2 * mb, age: 200); dirAge("Projeler/Web/node_modules/lib", 200); dirAge("Projeler/Web/node_modules", 200)
+        file("Projeler/Bos/bin/x", 2 * mb, age: 90)   // .csproj yok: dokunulmaz
+        file(".nuget/packages/newtonsoft/x.nupkg", 2 * mb, age: 30); dirAge(".nuget/packages/newtonsoft", 30); dirAge(".nuget/packages", 30)
 
         func find(_ items: [DiskItem], _ name: String) -> DiskItem? { items.first { $0.name == name || $0.url.lastPathComponent == name } }
         let caches = scanner.scan(.caches)
@@ -121,7 +136,23 @@ enum DiskCheck {
         check("boyut diskte kaplanan yerden okunur", (find(caches, "com.example.old")?.size ?? 0) >= Int64(2 * mb))
         check("eski günlük bulunur", scanner.scan(.logs).first?.verdict == .remove)
         let dev = scanner.scan(.developer)
-        check("DerivedData projesi bulunur", dev.first?.name == "DerivedData · Proje" && dev.first?.verdict == .remove, dev.map(\.name).joined(separator: ","))
+        check("DerivedData projesi bulunur", find(dev, "DerivedData · Proje")?.verdict == .remove, dev.map(\.name).joined(separator: ","))
+        check("Docker boyutları okunur", DevCleanup.size("661.4MB") == 661_400_000 && DevCleanup.size("24.58kB") == 24_580
+              && DevCleanup.size("-1.463e+09B") == 0 && DevCleanup.size("0B") == 0 && DevCleanup.size("12MB (45%)") == 12_000_000)
+        func dk(_ key: String) -> DiskItem? { dev.first { $0.url.absoluteString == "docker://" + key } }
+        check("etiketsiz imajlar silinebilir", dk("images-dangling")?.verdict == .remove && dk("images-dangling")?.size == 1_500_000_000
+              && dk("images-dangling")?.dockerArgs == ["image", "prune", "-f"])
+        check("Docker derleme önbelleği silinebilir, kullanılan hariç", dk("build-cache")?.verdict == .remove && dk("build-cache")?.size == 2_100_000_000)
+        check("kullanılmayan imajlar ve durmuş konteynerler gözden geçir", dk("images-unused")?.verdict == .review && dk("containers-stopped")?.verdict == .review
+              && dk("containers-stopped")?.dockerCount == 1)
+        check("bağlı olmayan birim gözden geçir, bağlı birim listelenmez", dk("volume-proje_pgdata")?.verdict == .review
+              && dk("volume-proje_pgdata")?.dockerArgs == ["volume", "rm", "proje_pgdata"] && dk("volume-kullanilan") == nil)
+        check("Docker öğesi kalıcı silindiğini söyler", dk("build-cache")?.reasons.contains("Kalıcı silinir, Çöp Kutusu'na gitmez") == true)
+        check("eski .NET bin klasörü silinebilir", find(dev, "Api · bin")?.verdict == .remove, dev.map(\.name).joined(separator: ","))
+        check("yeni derlenmiş obj gözden geçir", find(dev, "Api · obj")?.verdict == .review)
+        check("eski projenin node_modules'ü silinebilir", find(dev, "Web · node_modules")?.verdict == .remove)
+        check(".csproj olmayan klasörün bin'ine dokunulmaz", find(dev, "Bos · bin") == nil)
+        check("NuGet paketleri bulunur", find(dev, "NuGet paketleri")?.verdict == .remove)
         let downloads = scanner.scan(.downloads)
         check("kurulum dosyası silinebilir", find(downloads, "Setup.dmg")?.verdict == .remove)
         check("iki gün önce açılan indirme gerekli", find(downloads, "rapor.pdf")?.verdict == .keep, find(downloads, "rapor.pdf")?.reasons.joined() ?? "yok")
@@ -151,6 +182,8 @@ enum DiskCheck {
             done(moved, nil)
         }
         center.isRunning = { _ in false }
+        var dockerRuns: [[String]] = []
+        center.runDocker = { dockerRuns.append($0); return (true, "") }
         center.scan()
         let end = Date().addingTimeInterval(10)
         while center.scannedAt == nil, Date() < end { RunLoop.main.run(until: Date().addingTimeInterval(0.02)) }
@@ -172,12 +205,17 @@ enum DiskCheck {
         check("taşınan dosya sahte çöpe gitti, gerçek çöpe değil", fm.fileExists(atPath: fakeTrash.appendingPathComponent("Setup.dmg").path)
               && !fm.fileExists(atPath: home.appendingPathComponent("Downloads/Setup.dmg").path))
         check("gerekli öğe yerinde kalır", fm.fileExists(atPath: yeni.url.path))
-        check("bilgi notu Çöp Kutusu'nu söyler", center.note?.contains("Çöp Kutusu boşaltılınca") == true && center.note?.contains("Taşınmadı: Yeni") == true, center.note ?? "")
+        check("Docker öğeleri Çöp Kutusu'na değil, docker komutuna gider", dockerRuns.contains(["image", "prune", "-f"]) && dockerRuns.contains(["builder", "prune", "-f"])
+              && !dockerRuns.contains(["volume", "rm", "proje_pgdata"]) && !recycled.contains { !$0.isFileURL }, "\(dockerRuns)")
+        check("taşınan bin klasörü sahte çöpe gitti", fm.fileExists(atPath: fakeTrash.appendingPathComponent("bin").path))
+        check("bilgi notu Docker ve Çöp Kutusu'nu ayrı söyler", center.note?.contains("Docker'dan") == true && center.note?.contains("Çöp Kutusu boşaltılınca") == true && center.note?.contains("Taşınmadı: Yeni") == true, center.note ?? "")
         let eskiApp = DiskItem(url: apps.appendingPathComponent("X.app"), kind: .apps, name: "X", size: 1, lastUsed: ago(400), bundleID: "com.example.x")
         center.isRunning = { $0 == "com.example.x" }
         recycled = []
         var fin2 = false
         center.moveToTrash([judge(eskiApp)]) { fin2 = true }
+        check("varsayılan DiskCenter Docker'ı çalıştırmaz", DiskCenter(scanner: scanner).runDocker(["version"]).0 == false
+              && DiskScanner(home: home, appDirs: []).dockerJSON() == nil)
         check("taşıma anında açık olan uygulama taşınmaz", fin2 && recycled.isEmpty && center.note?.contains("açık") == true)
 
         // Bellek kuralları

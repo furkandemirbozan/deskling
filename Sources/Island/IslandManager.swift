@@ -18,7 +18,14 @@ final class IslandManager: ObservableObject {
     @Published private(set) var countdown: Countdown? { didSet { saveCountdown() } }
     @Published private(set) var stopwatch = Stopwatch()
     @Published private(set) var robot: RobotStatus?
-    @Published var hiddenForFullscreen = false
+    /// Öndeki uygulama tam ekran.
+    @Published var fullscreen = false
+    @Published private(set) var hole: HoleJob?
+    /// Ertelenmemiş en önemli uyarı kulakta görünür.
+    @Published private(set) var health: [HealthWarning] = []
+    var onHealthAction: (HealthWarning.Kind) -> Void = { _ in }
+    private var healthSnoozed: [HealthWarning.Kind: Date] = [:]
+    private var lastHealthAlert: [HealthWarning.Kind: Date] = [:]
     @Published var hasScreen = true
     @Published var dropTargeted = false
     @Published var power: PowerState?
@@ -64,7 +71,9 @@ final class IslandManager: ObservableObject {
     /// Süren etkinlikler önem sırasıyla: zamanlayıcı, Pomodoro, müzik, kronometre, robot.
     var liveActivities: [LiveActivity] {
         var out: [LiveActivity] = []
+        if visibleHealth != nil { out.append(.health) }
         if countdown != nil { out.append(.timer) }
+        if hole != nil { out.append(.hole) }
         if pomoEnabled(), pomo.phase != .idle { out.append(.pomodoro) }
         if media.track?.playing == true { out.append(.media) }
         if stopwatch.active { out.append(.stopwatch) }
@@ -73,12 +82,15 @@ final class IslandManager: ObservableObject {
     }
 
     var display: IslandDisplay {
-        guard settings.enabled, hasScreen, !hiddenForFullscreen else { return .hidden }
+        guard settings.enabled, hasScreen else { return .hidden }
+        let quiet = fullscreen && settings.fullscreenMode != .normal
+        if fullscreen && settings.fullscreenMode == .hidden { return .hidden }
         if alert != nil { return .alert }
         if expanded { return .expanded }
         if let t = transient { return .compact(.transient(t)) }
         if let a = liveActivities.first { return .compact(.live(a)) }
-        return geometry.hasNotch ? .closed : .hidden
+        // Tam ekranda boş ada görünmez; yalnızca süren bir şey ya da uyarı varsa belirir.
+        return geometry.hasNotch && !quiet ? .closed : .hidden
     }
 
     /// İkinci etkinlik, adanın yanında ayrı bir baloncukta.
@@ -211,7 +223,70 @@ final class IslandManager: ObservableObject {
 
     func robotFinished(collected n: Int) {
         guard n > 0 else { return }
-        show(.robot("\(n) görüntü toplandı"), seconds: 3)
+        show(.robot("\(n) ekran görüntüsü kutuya alındı"), seconds: 3.2)
+    }
+
+    // MARK: - Kara delik
+
+    func setHole(_ job: HoleJob?) {
+        guard hole != job else { return }
+        hole = job
+    }
+
+    /// Uzun iş bittiyse sonucu kısaca söyler (kısa işlerde ada hiç açılmaz).
+    func holeFinished(title: String, ok: Bool) {
+        guard hole != nil else { return }
+        hole = nil
+        show(.hole(title, ok: ok), seconds: 3.2)
+    }
+
+    // MARK: - Bellek ve disk uyarıları
+
+    var visibleHealth: HealthWarning? {
+        let n = now()
+        return health.first { w in healthSnoozed[w.kind].map { n >= $0 } ?? true }
+    }
+
+    func setHealth(_ list: [HealthWarning]) {
+        let old = health
+        health = list
+        guard settings.enabled, settings.isOn(.health) else { return }
+        // Bir sorun yeni kritikleştiyse ada bir kez kendiliğinden açılır (saatte en fazla bir kez).
+        for w in list where w.level == .critical {
+            let was = old.first { $0.kind == w.kind }?.level
+            let last = lastHealthAlert[w.kind] ?? .distantPast
+            if was != .critical, now().timeIntervalSince(last) > 3600, healthSnoozed[w.kind].map({ now() >= $0 }) ?? true {
+                showHealthAlert(w.kind)
+                break
+            }
+        }
+    }
+
+    func showHealthAlert(_ kind: HealthWarning.Kind? = nil) {
+        guard let w = kind.flatMap({ k in health.first { $0.kind == k } }) ?? visibleHealth else { return }
+        lastHealthAlert[w.kind] = now()
+        alert = IslandAlert(kind: .health(w.kind, w.level), title: w.title, body: w.body, symbol: w.symbol,
+                            until: now().addingTimeInterval(25), action: w.action)
+        transient = nil
+        expanded = false
+        ensureTicker()
+        onExpand()
+    }
+
+    /// Uyarıdaki tek tıklık eylem.
+    func performHealthAction() {
+        guard case .health(let k, _)? = alert?.kind else { return }
+        alert = nil
+        healthSnoozed[k] = now().addingTimeInterval(10 * 60)
+        onHealthAction(k)
+        ensureTicker()
+    }
+
+    /// "Sonra": bu uyarı bir saat boyunca kulakta görünmez.
+    func snoozeHealth() {
+        if case .health(let k, _)? = alert?.kind { healthSnoozed[k] = now().addingTimeInterval(3600) }
+        alert = nil
+        ensureTicker()
     }
 
     // MARK: - Raf

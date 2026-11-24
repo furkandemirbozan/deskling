@@ -12,14 +12,20 @@ struct DiskScanner {
     var largeThreshold: Int64 = 500 * 1_048_576
     var minimumSize: Int64 = 1_048_576
     var now: () -> Date = Date.init
+    /// `docker system df -v` JSON'u; Docker yoksa ya da çalışmıyorsa nil. Yalnızca `live()` gerçek Docker'a bakar.
+    var dockerJSON: () -> String? = { nil }
+    /// bin/obj ve node_modules aranacak klasörler; nil ise ev klasörünün doğrudan alt klasörleri.
+    var projectRoots: [URL]? = nil
 
     static func live() -> DiskScanner {
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser
         var prot = [home.appendingPathComponent("Library/Application Support/Deskling").path]
         prot.append(Bundle.main.bundleURL.path)
-        return DiskScanner(home: home, appDirs: [URL(fileURLWithPath: "/Applications"), home.appendingPathComponent("Applications")],
-                           protectedPaths: prot)
+        var s = DiskScanner(home: home, appDirs: [URL(fileURLWithPath: "/Applications"), home.appendingPathComponent("Applications")],
+                            protectedPaths: prot)
+        s.dockerJSON = { DevCleanup.dockerJSON() }
+        return s
     }
 
     func scan(_ kind: DiskKind, cancelled: () -> Bool = { false }) -> [DiskItem] {
@@ -40,7 +46,7 @@ struct DiskScanner {
             items = s > 0 ? [DiskItem(url: t, kind: .trash, name: "Çöp Kutusu", size: s)] : []
         }
         let n = now()
-        return items.filter { $0.size >= minimumSize || $0.kind == .apps }
+        return items.filter { $0.size >= minimumSize || $0.kind == .apps || ($0.isDocker && $0.dockerCount > 0 && $0.size > 0) }
             .map { DiskAdvisor.judge($0, now: n) }
             .sorted(by: DiskAdvisor.sort)
     }
@@ -48,6 +54,7 @@ struct DiskScanner {
     private func lib(_ p: String) -> URL { home.appendingPathComponent("Library").appendingPathComponent(p) }
 
     func isProtected(_ url: URL) -> Bool {
+        guard url.isFileURL else { return false }
         let p = url.standardizedFileURL.path
         return protectedPaths.contains { p == $0 || p.hasPrefix($0 + "/") || $0.hasPrefix(p + "/") }
     }
@@ -108,6 +115,11 @@ struct DiskScanner {
             ("Library/Developer/Xcode/watchOS DeviceSupport", "watchOS cihaz destek dosyaları"),
             ("Library/Developer/CoreSimulator/Caches", "Simülatör önbellekleri"),
             (".npm/_cacache", "npm önbelleği"),
+            (".nuget/packages", "NuGet paketleri"),
+            (".local/share/NuGet/http-cache", "NuGet indirme önbelleği"),
+            (".local/share/NuGet/v3-cache", "NuGet v3 önbelleği"),
+            ("Library/pnpm/store", "pnpm deposu"),
+            (".yarn/berry/cache", "Yarn önbelleği"),
             (".gradle/caches", "Gradle önbelleği"),
             (".cocoapods/repos", "CocoaPods depoları"),
             (".cache", "Komut satırı araç önbellekleri"),
@@ -118,6 +130,13 @@ struct DiskScanner {
             guard FileManager.default.fileExists(atPath: url.path) else { continue }
             out.append(single(url, name: name, cancelled: cancelled))
         }
+        if !cancelled() {
+            let roots = projectRoots ?? list(home).filter {
+                (try? $0.resourceValues(forKeys: [.isDirectoryKey]))?.isDirectory == true && !DevCleanup.skipNames.contains($0.lastPathComponent)
+            }
+            out += DevCleanup.projectLeftovers(roots: roots, isProtected: isProtected, cancelled: cancelled)
+        }
+        if !cancelled(), let json = dockerJSON() { out += DevCleanup.dockerItems(json) }
         return out
     }
 
@@ -248,6 +267,14 @@ final class DiskCenter: ObservableObject {
     }
     var reveal: ([URL]) -> Void = { NSWorkspace.shared.activateFileViewerSelecting($0) }
     var isRunning: (String) -> Bool = { id in !NSRunningApplication.runningApplications(withBundleIdentifier: id).isEmpty }
+    /// Docker temizliği; kalıcıdır, onay arayüzde alınır. Yalnızca `live()` gerçek Docker'ı çalıştırır.
+    var runDocker: ([String]) -> (Bool, String) = { _ in (false, "Docker temizliği kapalı") }
+
+    static func live() -> DiskCenter {
+        let c = DiskCenter(scanner: .live())
+        c.runDocker = { DevCleanup.runDocker($0) }
+        return c
+    }
 
     private let queue = DispatchQueue(label: "deskling.disk", qos: .utility)
     private var generation = 0
@@ -261,7 +288,7 @@ final class DiskCenter: ObservableObject {
         func set(_ n: Int) { lock.lock(); v = n; lock.unlock() }
     }
 
-    init(scanner: DiskScanner = .live()) {
+    init(scanner: DiskScanner) {
         self.scanner = scanner
     }
 
@@ -332,7 +359,10 @@ final class DiskCenter: ObservableObject {
         if selection.contains(item.id) { selection.remove(item.id) } else { selection.insert(item.id) }
     }
 
-    func show(_ list: [DiskItem]) { reveal(list.map(\.url)) }
+    func show(_ list: [DiskItem]) { reveal(list.filter { !$0.isDocker }.map(\.url)) }
+
+    /// Geliştirici bölümünde güvenle silinebilenler (tek tıkla temizlik).
+    var developerCleanup: [DiskItem] { (items[.developer] ?? []).filter { $0.verdict == .remove && $0.canTrash } }
 
     /// Seçilenleri Çöp Kutusu'na taşır. Gerekli, korunan ya da şu an açık uygulamalar asla taşınmaz.
     func moveToTrash(_ list: [DiskItem], done: (() -> Void)? = nil) {
@@ -342,24 +372,30 @@ final class DiskCenter: ObservableObject {
             if item.kind == .apps, let id = item.bundleID, isRunning(id) { refused.append(item.name + " (açık)"); return false }
             return !scanner.isProtected(item.url)
         }
+        let docker = ok.filter(\.isDocker)
+        let files = ok.filter { !$0.isDocker }
         guard !ok.isEmpty else {
             note = refused.isEmpty ? nil : "Taşınmadı: " + refused.joined(separator: ", ")
             done?()
             return
         }
         working = true
-        recycle(ok.map(\.url)) { [weak self] moved, err in
+        let runDocker = self.runDocker
+        let finishFiles: ([URL], Error?, [DiskItem], [String]) -> Void = { [weak self] moved, err, dockerGone, dockerErrors in
             DispatchQueue.main.async {
                 guard let self else { return }
                 let movedPaths = Set(moved.map { $0.standardizedFileURL.path })
-                let gone = ok.filter { movedPaths.contains($0.url.standardizedFileURL.path) }
+                let gone = files.filter { movedPaths.contains($0.url.standardizedFileURL.path) } + dockerGone
                 let goneIDs = Set(gone.map(\.id))
                 for k in DiskKind.allCases { self.items[k]?.removeAll { goneIDs.contains($0.id) } }
                 self.selection.subtract(goneIDs)
-                let freed = gone.reduce(0) { $0 + $1.size }
                 var parts: [String] = []
-                if !gone.isEmpty {
-                    parts.append("\(gone.count) öğe (\(DiskFormat.bytes(freed))) Çöp Kutusu'na taşındı. Yer, Çöp Kutusu boşaltılınca açılır; o zamana kadar geri alabilirsin.")
+                let trashed = gone.filter { !$0.isDocker }
+                if !dockerGone.isEmpty {
+                    parts.append("Docker'dan \(DiskFormat.bytes(dockerGone.reduce(0) { $0 + $1.size })) silindi.")
+                }
+                if !trashed.isEmpty {
+                    parts.append("\(trashed.count) öğe (\(DiskFormat.bytes(trashed.reduce(0) { $0 + $1.size }))) Çöp Kutusu'na taşındı. Yer, Çöp Kutusu boşaltılınca açılır; o zamana kadar geri alabilirsin.")
                     // Çöp Kutusu bölümünü arka planda güncelle.
                     let scanner = self.scanner
                     self.queue.async {
@@ -367,13 +403,27 @@ final class DiskCenter: ObservableObject {
                         DispatchQueue.main.async { self.items[.trash] = trash }
                     }
                 }
-                let failed = ok.count - gone.count
+                let failed = files.count - trashed.count
                 if failed > 0 { parts.append("\(failed) öğe taşınamadı" + (err.map { ": " + $0.localizedDescription } ?? ".")) }
+                if !dockerErrors.isEmpty { parts.append("Docker: " + dockerErrors.joined(separator: "; ")) }
                 if !refused.isEmpty { parts.append("Taşınmadı: " + refused.joined(separator: ", ")) }
                 self.note = parts.joined(separator: " ")
                 self.working = false
                 self.refreshVolume()
                 done?()
+            }
+        }
+        // Önce Docker (kalıcı, arka planda), sonra dosyalar (Çöp Kutusu'na).
+        queue.async { [weak self] in
+            var dockerGone: [DiskItem] = [], dockerErrors: [String] = []
+            for d in docker {
+                let (ok, msg) = runDocker(d.dockerArgs ?? [])
+                if ok { dockerGone.append(d) } else { dockerErrors.append("\(d.name): \(msg)") }
+            }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                if files.isEmpty { finishFiles([], nil, dockerGone, dockerErrors); return }
+                self.recycle(files.map(\.url)) { moved, err in finishFiles(moved, err, dockerGone, dockerErrors) }
             }
         }
     }

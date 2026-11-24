@@ -76,7 +76,11 @@ struct DiskPage: View {
         guard let c = confirm else { return "" }
         let size = DiskFormat.bytes(c.reduce(0) { $0 + $1.size })
         let names = c.prefix(6).map(\.name).joined(separator: ", ") + (c.count > 6 ? " ve \(c.count - 6) tane daha" : "")
-        return "\(names)\n\nToplam \(size). Kalıcı olarak silinmez; Çöp Kutusu'ndan geri alabilirsin. Yer, Çöp Kutusu boşaltılınca açılır."
+        let docker = c.filter(\.isDocker), files = c.filter { !$0.isDocker }
+        var parts = ["\(names)\n\nToplam \(size)."]
+        if !files.isEmpty { parts.append("Dosyalar Çöp Kutusu'na taşınır, oradan geri alabilirsin; yer, Çöp Kutusu boşaltılınca açılır.") }
+        if !docker.isEmpty { parts.append("Docker'daki \(docker.count) öğe kalıcı olarak silinir, geri alınamaz.") }
+        return parts.joined(separator: " ")
     }
 
     private var startCard: some View {
@@ -179,6 +183,7 @@ struct DiskPage: View {
                 .labelsHidden().frame(width: 130).controlSize(.small)
             }
             Text(k.detail).font(.caption).foregroundStyle(.secondary)
+            if k == .developer { developerCard }
             // Parça parça: her öğe kapladığı yer kadar, kararının rengiyle.
             PieceBar(items: list, highlight: highlight) { item in
                 highlight = item.id
@@ -217,6 +222,28 @@ struct DiskPage: View {
         }
         .padding(12)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.primary.opacity(0.035)))
+    }
+
+    /// Tek tıkla geliştirici temizliği: yalnızca "silinebilir" olanlar.
+    private var developerCard: some View {
+        let list = disk.developerCleanup
+        let size = list.reduce(Int64(0)) { $0 + $1.size }
+        let docker = list.filter(\.isDocker).count
+        return HStack(spacing: 10) {
+            Image(systemName: "wand.and.stars").font(.title2).foregroundStyle(DiskKind.developer.color)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Geliştirici temizliği").font(.subheadline.weight(.semibold))
+                Text(list.isEmpty ? "Şu an güvenle silinebilecek bir şey yok."
+                     : "\(list.count) parça, \(DiskFormat.bytes(size)). Derleme artıkları ve önbellekler Çöp Kutusu'na taşınır" + (docker > 0 ? "; Docker artıkları kalıcı olarak silinir." : "."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 6)
+            Button { confirm = list } label: { Label("Tek tıkla temizle", systemImage: "sparkles") }
+                .buttonStyle(.borderedProminent).controlSize(.small)
+                .disabled(list.isEmpty || disk.working)
+        }
+        .padding(10)
+        .background(RoundedRectangle(cornerRadius: 10).fill(DiskKind.developer.color.opacity(0.1)))
     }
 
     private func verdictSummary(_ all: [DiskItem]) -> some View {
@@ -390,7 +417,15 @@ struct DiskRow: View {
                 .toggleStyle(.checkbox).labelsHidden()
                 .disabled(!item.canTrash)
                 .opacity(item.canTrash ? 1 : 0.25)
-            Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path)).resizable().frame(width: 24, height: 24)
+            Group {
+                if item.isDocker {
+                    Image(systemName: item.dockerVolume ? "cylinder.split.1x2.fill" : "shippingbox.fill")
+                        .font(.system(size: 16)).foregroundStyle(Color(red: 0.11, green: 0.55, blue: 0.93))
+                } else {
+                    Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path)).resizable()
+                }
+            }
+            .frame(width: 24, height: 24)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(item.name).lineLimit(1).truncationMode(.middle)
@@ -401,7 +436,9 @@ struct DiskRow: View {
             Spacer(minLength: 6)
             Text(DiskFormat.bytes(item.size)).font(.callout).monospacedDigit()
             Button(action: reveal) { Image(systemName: "magnifyingglass") }.buttonStyle(.borderless).help("Finder'da göster")
-            Button(action: trash) { Image(systemName: "trash") }.buttonStyle(.borderless).help("Çöp Kutusu'na taşı")
+                .disabled(item.isDocker).opacity(item.isDocker ? 0.25 : 1)
+            Button(action: trash) { Image(systemName: "trash") }.buttonStyle(.borderless)
+                .help(item.isDocker ? "Docker'dan kalıcı olarak sil" : "Çöp Kutusu'na taşı")
                 .disabled(!item.canTrash).opacity(item.canTrash ? 1 : 0.25)
         }
         .padding(.vertical, 6).padding(.horizontal, 4)

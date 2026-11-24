@@ -30,7 +30,9 @@ struct IslandTab: View {
                 .disabled(!settings.hoverOpen)
                 Toggle("Açılırken dokunsal geri bildirim", isOn: $settings.haptics)
                 Toggle("İkinci etkinlik ayrı baloncukta", isOn: $settings.secondary)
-                Toggle("Tam ekran uygulamalarda gizlensin", isOn: $settings.hideFullscreen)
+                Picker("Tam ekran uygulamalarda", selection: $settings.fullscreenMode) {
+                    ForEach(FullscreenMode.allCases) { Text($0.title).tag($0) }
+                }
                 Toggle("Çentiksiz ekranda da göster", isOn: $settings.noNotch)
                 Toggle("Zamanlayıcı bitince ses çal", isOn: $settings.timerSound)
             }

@@ -78,7 +78,10 @@ struct IslandRootView: View {
             .clipShape(IslandShape(flare: flare, radius: radius))
             .overlay(dropHalo(d, flare: flare, radius: radius))
             .contentShape(IslandShape(flare: flare, radius: radius))
-            .onTapGesture { if case .compact = d { m.expand() } else if d == .closed { m.expand() } }
+            .onTapGesture {
+                if case .compact(.live(.health)) = d { m.showHealthAlert() }
+                else if case .compact = d { m.expand() } else if d == .closed { m.expand() }
+            }
             if let s = secondary {
                 SecondaryBubble(m: m, media: media, pomo: pomo, activity: s)
                     .frame(width: m.geometry.notch.height, height: m.geometry.notch.height)
@@ -177,6 +180,12 @@ private struct CompactView: View {
             Image(systemName: "stopwatch.fill").foregroundStyle(IslandColors.timer)
         case .live(.robot):
             Image(nsImage: RobotArt.appIcon(22)).resizable().frame(width: 20, height: 20)
+        case .live(.hole):
+            HoleGlyph(size: 18)
+        case .live(.health):
+            if let w = m.visibleHealth {
+                Image(systemName: w.symbol).foregroundStyle(HealthColors.color(w.level))
+            }
         case .transient(let t):
             TransientLeading(kind: t)
         }
@@ -203,6 +212,15 @@ private struct CompactView: View {
         case .live(.robot):
             Text(m.robot?.short ?? "").font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(Color(red: 0.55, green: 0.82, blue: 1))
+        case .live(.hole):
+            HStack(spacing: 5) {
+                ProgressRing(progress: Double(m.hole?.percent ?? 0) / 100, color: HoleGlyph.tint, width: 2.4).frame(width: 14, height: 14)
+                Text("%\(m.hole?.percent ?? 0)").foregroundStyle(HoleGlyph.tint)
+            }
+        case .live(.health):
+            if let w = m.visibleHealth {
+                Text(w.short).foregroundStyle(HealthColors.color(w.level))
+            }
         case .transient(let t):
             TransientTrailing(kind: t)
         }
@@ -232,6 +250,8 @@ private struct TransientLeading: View {
             Image(nsImage: RobotArt.appIcon(22)).resizable().frame(width: 20, height: 20)
         case .shelf:
             Image(systemName: "tray.and.arrow.down.fill").foregroundStyle(Color(red: 0.5, green: 0.78, blue: 1))
+        case .hole(_, let ok):
+            if ok { HoleGlyph(size: 18) } else { Image(systemName: "exclamationmark.circle.fill").foregroundStyle(HealthColors.color(.critical)) }
         }
     }
 }
@@ -258,6 +278,10 @@ private struct TransientTrailing: View {
                 .foregroundStyle(Color(red: 0.55, green: 0.82, blue: 1))
         case .shelf(let n):
             Text("+\(n) rafta").font(.system(size: 12, weight: .semibold, design: .rounded))
+        case .hole(let text, _):
+            Text(text).font(.system(size: 12, weight: .semibold, design: .rounded)).lineLimit(1).truncationMode(.tail)
+                .frame(maxWidth: 180, alignment: .trailing)
+                .foregroundStyle(HoleGlyph.tint)
         }
     }
 }
@@ -290,10 +314,18 @@ private struct SecondaryBubble: View {
                 Image(systemName: "stopwatch.fill").font(.system(size: 13)).foregroundStyle(IslandColors.timer)
             case .robot:
                 Image(nsImage: RobotArt.appIcon(22)).resizable().frame(width: 19, height: 19)
+            case .hole:
+                ProgressRing(progress: Double(m.hole?.percent ?? 0) / 100, color: HoleGlyph.tint, width: 2.4)
+                    .frame(width: 21, height: 21).overlay(HoleGlyph(size: 10))
+            case .health:
+                Image(systemName: m.visibleHealth?.symbol ?? "exclamationmark.triangle.fill").font(.system(size: 12))
+                    .foregroundStyle(HealthColors.color(m.visibleHealth?.level ?? .warning))
             }
         }
         .contentShape(Circle())
-        .onTapGesture { m.expand(page: activity == .timer || activity == .stopwatch ? .timer : .home) }
+        .onTapGesture {
+            if activity == .health { m.showHealthAlert() } else { m.expand(page: activity == .timer || activity == .stopwatch ? .timer : .home) }
+        }
         .environment(\.colorScheme, .dark)
     }
 }
@@ -308,6 +340,7 @@ private struct AlertView: View {
         if let a = m.alert {
             let tint: Color = {
                 if case .pomodoro(let p) = a.kind { return p.isBreak ? IslandColors.rest : IslandColors.focus }
+                if case .health(_, let level) = a.kind { return HealthColors.color(level) }
                 return IslandColors.timer
             }()
             HStack(spacing: 14) {
@@ -319,13 +352,18 @@ private struct AlertView: View {
                 .frame(width: 46, height: 46)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(a.title).font(.system(size: 16, weight: .semibold, design: .rounded))
-                    Text(a.body).font(.system(size: 12)).foregroundStyle(IslandColors.dim).lineLimit(2)
+                    Text(a.body).font(.system(size: 12)).foregroundStyle(IslandColors.dim).lineLimit(3).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 8)
                 if case .timer = a.kind {
                     PillButton(title: "+5 dk", fill: Color.white.opacity(0.14)) { m.snooze(minutes: 5) }
                 }
-                PillButton(title: "Tamam", fill: tint, text: .black) { m.dismissAlert() }
+                if case .health = a.kind {
+                    PillButton(title: "Sonra", fill: Color.white.opacity(0.14)) { m.snoozeHealth() }
+                    PillButton(title: a.action ?? "Aç", fill: tint, text: .black) { m.performHealthAction() }
+                } else {
+                    PillButton(title: "Tamam", fill: tint, text: .black) { m.dismissAlert() }
+                }
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 24)
@@ -337,6 +375,31 @@ private struct AlertView: View {
 }
 
 // MARK: - Küçük parçalar
+
+enum HealthColors {
+    static func color(_ l: HealthWarning.Level) -> Color {
+        l == .critical ? Color(red: 1, green: 0.36, blue: 0.33) : Color(red: 1, green: 0.72, blue: 0.22)
+    }
+}
+
+/// Küçük kara delik: dönen mor halka.
+struct HoleGlyph: View {
+    static let tint = Color(red: 0.76, green: 0.62, blue: 1)
+    let size: CGFloat
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20)) { ctx in
+            let angle = ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 2) * 180
+            ZStack {
+                Circle().fill(AngularGradient(colors: [Self.tint, Color(red: 0.35, green: 0.18, blue: 0.75), Self.tint.opacity(0.2), Self.tint],
+                                              center: .center))
+                    .rotationEffect(.degrees(angle))
+                Circle().fill(Color.black).padding(size * 0.28)
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
 
 struct ArtworkView: View {
     @ObservedObject var media: NowPlaying
