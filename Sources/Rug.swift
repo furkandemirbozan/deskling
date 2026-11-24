@@ -117,6 +117,9 @@ final class RugView: NSView, NSDraggingSource {
     var onHide: () -> Void = {}
     var onMoved: () -> Void = {}
     var onOpenFolder: () -> Void = {}
+    /// Halının altını Touch ID ile kilitler; testlerde kapalıdır.
+    var lock = RugLock()
+    static let unlockReason = "halının altındaki dosyaları göstermek"
     var onSwept: (_ moved: Int, _ failed: Int) -> Void = { _, _ in }
     var testMouse: NSPoint?
 
@@ -364,6 +367,7 @@ final class RugView: NSView, NSDraggingSource {
             if k >= 1 {
                 timer.invalidate()
                 if closing {
+                    self.lock.closed()
                     self.corner = nil
                     self.hinting = false
                     self.applyFold()
@@ -391,7 +395,8 @@ final class RugView: NSView, NSDraggingSource {
     // MARK: - Halı altındaki simgeler
 
     private func layoutItems() {
-        guard corner != nil, !exposed.isEmpty, !hinting else {
+        // Kilitliyken halı kalkar (ör. dosya süpürürken) ama altındakiler görünmez.
+        guard corner != nil, !exposed.isEmpty, !hinting, lock.canReveal else {
             if !cells.isEmpty || layoutKey != "" { clearItems() }
             return
         }
@@ -526,6 +531,20 @@ final class RugView: NSView, NSDraggingSource {
         }
         if nearCorner(p), !isFolded {
             let c = nearestCorner(p)
+            if lock.needsAuth {
+                drag = .none
+                lock.unlock(Self.unlockReason) { [weak self] ok in
+                    guard let self else { return }
+                    if ok {
+                        if self.corner != c { self.corner = c; self.foldPoint = c }
+                        self.hinting = false
+                        self.openFold(near: c, amount: 250, hint: false)
+                    } else if self.hinting {
+                        self.closeFold()
+                    }
+                }
+                return
+            }
             if corner != c { corner = c; foldPoint = c }
             hinting = false
             drag = .fold(wasOpen: false)
@@ -780,11 +799,22 @@ final class RugController {
             self?.savePosition()
             onMoved()
         }
-        view.onOpenFolder = { NSWorkspace.shared.open(store.dir) }
+        let lock = RugLock(watchSystem: persist)
+        lock.hasSecrets = { !store.items.isEmpty }
+        lock.onLock = { [weak view] in view?.closeFold() }
+        view.lock = lock
+        view.onOpenFolder = { [weak self] in self?.openFolder() }
         if !persist || d.object(forKey: "rugVisible") == nil || d.bool(forKey: "rugVisible") { window.orderFrontRegardless() }
     }
 
     var isVisible: Bool { window.isVisible }
+    var lock: RugLock { view.lock }
+
+    /// Halı altı klasörünü Finder'da açar; kilitliyse önce kimlik sorar.
+    func openFolder() {
+        let dir = view.store.dir
+        view.lock.unlock(RugView.unlockReason) { ok in if ok { NSWorkspace.shared.open(dir) } }
+    }
 
     /// Halıyı ortası sabit kalacak şekilde büyütür ya da küçültür.
     func setScale(_ value: Double) {

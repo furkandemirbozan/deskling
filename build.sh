@@ -8,8 +8,8 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 swiftc -O -swift-version 5 -target arm64-apple-macos13.0 \
-  -framework AppKit -framework SwiftUI -framework QuartzCore -framework Metal -framework CoreServices -framework PDFKit -framework ImageIO -framework AVFoundation -framework CoreMedia -framework Carbon -framework IOKit -framework UserNotifications \
-  Sources/*.swift Sources/BlackHole/*.swift Sources/DevCenter/*.swift Sources/Clipboard/*.swift Sources/Pomodoro/*.swift -o "$APP/Contents/MacOS/Deskling"
+  -framework AppKit -framework SwiftUI -framework QuartzCore -framework Metal -framework CoreServices -framework PDFKit -framework ImageIO -framework AVFoundation -framework CoreMedia -framework Carbon -framework IOKit -framework UserNotifications -framework CoreAudio \
+  Sources/*.swift Sources/BlackHole/*.swift Sources/DevCenter/*.swift Sources/Clipboard/*.swift Sources/Pomodoro/*.swift Sources/Island/*.swift Sources/Disk/*.swift -o "$APP/Contents/MacOS/Deskling"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -27,7 +27,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <key>LSUIElement</key><true/>
   <key>NSHighResolutionCapable</key><true/>
   <key>NSDesktopFolderUsageDescription</key><string>Robot, masaüstündeki ekran görüntülerini bulmak için bu izne ihtiyaç duyar.</string>
-  <key>NSAppleEventsUsageDescription</key><string>Robot, masaüstü simgelerinin konumunu Finder'dan öğrenir ve çarptığı simgeleri yana iter.</string>
+  <key>NSAppleEventsUsageDescription</key><string>Robot, masaüstü simgelerinin konumunu Finder'dan öğrenir ve çarptığı simgeleri yana iter. Dinamik ada, Müzik, Spotify ve tarayıcıdaki müzik sekmelerinde çalan parçayı gösterir ve denetler.</string>
 </dict></plist>
 PLIST
 

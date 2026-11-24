@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum PanelTab: String, CaseIterable, Identifiable {
-    case found = "Bulunanlar", history = "Geçmiş", ports = "Portlar", pomodoro = "Odak", settings = "Ayarlar"
+    case found = "Bulunanlar", history = "Geçmiş", ports = "Portlar", pomodoro = "Odak", disk = "Disk", island = "Ada", settings = "Ayarlar"
     var id: String { rawValue }
 }
 
@@ -26,6 +26,8 @@ struct PanelView: View {
                 case .history: HistoryTab(model: model)
                 case .ports: PortsTab(dev: model.dev)
                 case .pomodoro: PomodoroTab(model: model, pomo: model.pomo)
+                case .disk: DiskTab(disk: model.disk, memory: model.memory)
+                case .island: IslandTab(island: model.island)
                 case .settings: SettingsTab(model: model)
                 }
             }
@@ -45,7 +47,7 @@ struct PanelView: View {
                 .padding(.vertical, 9)
             }
         }
-        .frame(minWidth: 440, idealWidth: 460, minHeight: 560, idealHeight: 640)
+        .frame(minWidth: 480, idealWidth: 500, minHeight: 560, idealHeight: 640)
     }
 
     private var header: some View {
@@ -323,6 +325,9 @@ struct SettingsTab: View {
                     }
                 }
                 .disabled(!model.rugVisible)
+                Toggle("Halının altını Touch ID ile kilitle", isOn: $model.rugTouchID)
+                Text("Halının altında dosya varken halıyı açmak ya da Finder'da göstermek Touch ID (yoksa Mac parolası) ister. Dosya süpürmek kilitliyken de olur. Halı kapandıktan 1 dakika sonra, uykuda ya da ekran kilitlenince yeniden kilitlenir.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
             Section {
                 Toggle("Mac açılınca başlat", isOn: $model.launchAtLogin)

@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var drink: DrinkController?
     private var drinkCheck: DrinkUICheck?
     private var syncCheck: PomodoroSyncCheck?
+    private var island: IslandController?
 
     func applicationDidFinishLaunching(_ note: Notification) {
         NSApp.applicationIconImage = RobotArt.appIcon(256)
@@ -84,6 +85,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self?.model.rugMoved()
         }
         model.connectRug(rug)
+        rug.lock.enabled = { [weak self] in self?.model.rugTouchID ?? false }
         model.attach(overlay)
         snow = SnowController()
         model.connectSnow(snow!)
@@ -97,6 +99,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         self.drink = drink
         model.connectDrink(drink)
+        model.island.onOpenSettings = { [weak self] in
+            self?.model.island.collapse()
+            self?.model.panelTab = .island
+            self?.showPanel()
+        }
+        island = IslandController(manager: model.island)
+        model.memory.startTracking()
 
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         status.button?.image = NSImage(systemSymbolName: "circle.circle.fill", accessibilityDescription: AppInfo.name)
@@ -289,6 +298,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             menu.addItem(.separator())
         }
+        let isl = model.island
+        add(menu, isl.settings.enabled ? "Dinamik Adayı Kapat" : "Dinamik Adayı Aç", #selector(toggleIsland))
+        if isl.settings.enabled {
+            if isl.countdown != nil {
+                add(menu, isl.countdown?.running == true ? "Zamanlayıcıyı Duraklat" : "Zamanlayıcıyı Sürdür", #selector(islandTimerToggle))
+                add(menu, "Zamanlayıcıyı İptal Et", #selector(islandTimerCancel))
+            } else {
+                let item = NSMenuItem(title: "Zamanlayıcı Başlat", action: nil, keyEquivalent: "")
+                let sub = NSMenu()
+                for n in [1, 5, 10, 15, 25, 45, 60] {
+                    let i = NSMenuItem(title: n >= 60 ? "\(n / 60) saat" : "\(n) dakika", action: #selector(islandTimer(_:)), keyEquivalent: "")
+                    i.target = self
+                    i.tag = n
+                    sub.addItem(i)
+                }
+                item.submenu = sub
+                menu.addItem(item)
+            }
+        }
+        menu.addItem(.separator())
         add(menu, "Toz Haznesini Aç", #selector(openBox))
         add(menu, model.snowEnabled ? "Karı Durdur" : "Kar Yağdır", #selector(toggleSnow))
         add(menu, model.snowPlowEnabled ? "Küreme Aracını Kapat" : "Küreme Aracını Aç", #selector(togglePlow))
@@ -326,9 +355,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc func openBox() { model.openCollection() }
+    @objc func toggleIsland() { model.island.settings.enabled.toggle() }
+    @objc func islandTimer(_ sender: NSMenuItem) { model.island.startTimer(minutes: sender.tag) }
+    @objc func islandTimerToggle() { model.island.toggleTimer() }
+    @objc func islandTimerCancel() { model.island.cancelTimer() }
     @objc func toggleSnow() { model.snowEnabled.toggle() }
     @objc func togglePlow() { model.snowPlowEnabled.toggle() }
-    @objc func openRug() { NSWorkspace.shared.open(model.rugStore.dir) }
+    @objc func openRug() { rug.openFolder() }
     @objc func toggleHole() { model.holeEnabled.toggle() }
     @objc func openClipboard() { clipPanel?.show() }
     @objc func pomoToggle() { model.pomo.toggle() }
@@ -380,6 +413,24 @@ if let i = arguments.firstIndex(of: "--sculpt-check") {
 }
 if let i = arguments.firstIndex(of: "--drink-gallery"), i + 1 < arguments.count {
     exit(DrinkGallery.run(output: URL(fileURLWithPath: arguments[i + 1])))
+}
+if let i = arguments.firstIndex(of: "--disk-gallery"), i + 1 < arguments.count {
+    exit(MainActor.assumeIsolated { DiskGallery.run(output: arguments[i + 1]) })
+}
+if arguments.contains("--disk-report") {
+    exit(DiskReport.run())
+}
+if arguments.contains("--disk-check") {
+    exit(DiskCheck.run())
+}
+if arguments.contains("--rug-lock-check") {
+    exit(RugLockCheck.run())
+}
+if arguments.contains("--island-check") {
+    exit(MainActor.assumeIsolated { IslandCheck.run() })
+}
+if let i = arguments.firstIndex(of: "--island-gallery"), i + 1 < arguments.count {
+    exit(MainActor.assumeIsolated { IslandGallery.run(output: URL(fileURLWithPath: arguments[i + 1])) })
 }
 if arguments.contains("--pomo-check") {
     exit(PomodoroCheck.run())

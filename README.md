@@ -4,7 +4,7 @@
 
 # Deskling
 
-**Masaüstünde yaşayan küçük yardımcın: ekran görüntülerini toplayan robot süpürge, altına dosya saklayabildiğin Türk motifli halı, fareyle kardan adam yapabildiğin gerçekçi kar, dosyaları sıkıştıran bir kara delik, port ve Docker kontrol merkezi, akıllı pano yöneticisi ve içeceği gerçekten azalan bir Pomodoro sayacı.**
+**Masaüstünde yaşayan küçük yardımcın: ekran görüntülerini toplayan robot süpürge, altına dosya saklayabildiğin Türk motifli halı, fareyle kardan adam yapabildiğin gerçekçi kar, dosyaları sıkıştıran bir kara delik, port ve Docker kontrol merkezi, akıllı pano yöneticisi, içeceği gerçekten azalan bir Pomodoro sayacı ve MacBook çentiğinde açılan bir dinamik ada.**
 
 macOS · Swift · AppKit · SwiftUI · Core Animation · Metal
 
@@ -43,6 +43,7 @@ Masaüstün ekran görüntüleriyle dolduğunda robota çift tıkla. Robot istas
 - **Portlar ve servisler:** Dinlenen portları gör, tek tıkla tarayıcıda aç ya da kapat, Docker konteynerlerini başlat ve durdur.
 - **Pano yöneticisi:** ⇧⌘V ile kopyalama geçmişine ulaş, klavyeyle seç ve yapıştır.
 - **İçecekli Pomodoro:** Masaüstündeki çay, Türk kahvesi, kahve ya da bira odak süresiyle birlikte azalır, molada yeniden dolar.
+- **Dinamik ada:** Fare MacBook'un çentiğine gelince çalan şarkı, zamanlayıcılar ve dosya rafı açılır. Şarj, ses ve kulaklık değişince kısa bildirimler gösterir.
 - **Kar topu ve kardan adam:** Biriken karı fareyle yuvarla, topları üst üste koyup süsle. Yüksekten düşen kardan adam kar yığınına döner.
 - **Pil ve şarj:** Pili azalan robot görevine ara verip istasyonda şarj olur, sonra kaldığı yerden devam eder.
 
@@ -69,6 +70,8 @@ Halının altına süpürülen dosyalar şu özel klasöre taşınır, robot bu 
 ```text
 ~/Library/Application Support/Deskling/Halı Altı
 ```
+
+**Touch ID kilidi.** Halının altında dosya varken halıyı açmak, menüden ya da sağ tıkla Finder'da göstermek Touch ID ister; Touch ID yoksa Mac parolası sorulur. Kilitliyken de dosya süpürebilirsin, halı kalkar ama altındakiler görünmez. Halı kapandıktan 1 dakika sonra, Mac uyuyunca ya da ekran kilitlenince yeniden kilitlenir. **Ayarlar → Halı** bölümünden kapatılabilir. Kilit Deskling içindir; klasör Finder'dan elle açılırsa sorulmaz.
 
 Halıyı bir ekran görüntüsünün üstüne çekmek de onu robottan korur. Bu koruma Finder'ın bildirdiği simge konumuna bağlıdır ve halı gizlenince kalkar. Kesin koruma için dosyayı halının altına süpür.
 
@@ -252,6 +255,110 @@ Masaüstünde bir içecek durur ve odak süresi boyunca yavaş yavaş azalır. H
 
 Sayaç uygulama kapanıp açılsa da kaldığı yerden sürer. Animasyon yoğunluğu **Düşük** seçilirse kare hızı ve partikül sayısı azalır.
 
+## Dinamik ada
+
+<div align="center">
+<img src="docs/images/ada.png" width="640" alt="Dinamik adanın kulakları, şarj bildirimi ve açık sayfaları">
+</div>
+
+MacBook'un çentiği, iPhone'daki gibi canlı bir adaya dönüşür. Ada çentikten aşağı yaylanarak büyür, iş bitince yeniden çentiğe çekilir. Çentiksiz ekranlarda menü çubuğunun ortasında da gösterilebilir.
+
+**Kulaklarda süren etkinlikler.** Bir şey sürerken çentiğin iki yanında küçük kulaklar belirir. Aynı anda iki etkinlik varsa ikincisi yanda ayrı bir baloncukta durur.
+
+| Etkinlik | Kulakta görünen |
+| --- | --- |
+| **Şu an çalan** | Albüm kapağı ve kapağın rengine bürünen ekolayzer çubukları. Müzik, Spotify ve tarayıcıda YouTube Music, YouTube, Spotify, SoundCloud, Apple Music, Deezer |
+| **Pomodoro** | Süreyle boşalan içecek simgesi ve kalan süre |
+| **Zamanlayıcı** | Azalan halka ve kalan süre |
+| **Kronometre** | Geçen süre |
+| **Robot** | Toplanacak kaç görüntü kaldığı |
+
+**Kısa bildirimler.** Birkaç saniye görünüp kaybolur:
+
+- Şarja takınca, çıkarınca, pil %20 ve %10'un altına inince, pil dolunca
+- Ses açılıp kısılınca ince bir ses çubuğu
+- AirPods, kulaklık ya da hoparlör değişince aygıtın adı ve simgesi
+- Bir şey kopyalanınca "Kopyalandı"
+- Robot görevi bitince kaç görüntü topladığı
+
+**Tarayıcıdaki müzik.** YouTube Music, YouTube, Spotify, SoundCloud, Apple Music, Deezer ve Tidal sekmeleri okunur; başka sekmelere bakılmaz. Çalıp çalmadığı sistemin ses bilgisinden anlaşılır.
+
+| Tarayıcı | Ne gelir? |
+| --- | --- |
+| Chrome, Brave, Edge, Vivaldi, Opera, Arc | "Apple Events'ten JavaScript'e izin ver" açıksa (menü çubuğunda Görünüm → Geliştirici) kapak, sanatçı, süre, konum ve sayfa içi denetim. Kapalıysa sekme başlığı gelir; oynat/duraklat ve ileri/geri sistemin "Şimdi Çalıyor" komutuyla yapılır, izin gerekmez. Birden çok profil varsa ayar her profilde ayrıdır. |
+| Safari | Aynısı; ayar Safari Ayarları → Geliştirici bölümündedir (önce Gelişmiş'te "Web geliştiricileri için özellikleri göster" açılır). |
+| Firefox, Zen | Firefox sekmeleri dışarıya açmaz; şarkı adı pencere başlığından Erişilebilirlik izniyle okunur; denetim sistemin "Şimdi Çalıyor" komutuyladır. Kapak ve süre gelmez. |
+
+**Açık ada.** Fare çentiğe gelince ada açılır. Üst sırada sayfalar, pil, saat ve ayarlar düğmesi durur.
+
+| Sayfa | Ne var? |
+| --- | --- |
+| **Şimdi** | Kapak, şarkı ve sanatçı, sürüklenebilir ilerleme çubuğu, geri/oynat/ileri, ses düzeyi. Yanda Pomodoro ve tek tıkla zamanlayıcı. Kapağa tıklayınca müzik uygulaması açılır. |
+| **Zamanlayıcı** | 1–60 dakikalık hazır süreler ya da kendi süren; duraklat, +1 dk, +5 dk. Yanında turlu kronometre. Süre dolunca ada açılır, ses çalar; **+5 dk** ile ertelenebilir. |
+| **Raf** | Dosyaları çentiğe sürükleyip bırak. Rafta bekler, istediğin yere sürükleyip çıkarırsın. AirDrop ile gönder, Finder'da göster. Dosyalar taşınmaz, kopyalanmaz; raf yalnızca yerlerini hatırlar. |
+
+Pomodoro'da odak ya da mola bitince ada kısa bir uyarıyla açılır. Tam ekran uygulamalarda ada gizlenir. Açılırken trackpad hafifçe titrer.
+
+Panelin **Ada** sekmesinden adanın tamamı ya da her etkinlik tek tek kapatılabilir. Açılma gecikmesi, ikinci etkinlik baloncuğu, dokunsal geri bildirim, tam ekranda gizlenme ve zamanlayıcı sesi de buradan ayarlanır. Zamanlayıcı menü çubuğundaki simgeden de başlatılabilir.
+
+## Disk ve bellek
+
+Panelin **Disk** sekmesi diskte neyin yer kapladığını bölüm bölüm gösterir ve neyin silinebileceğini söyler. Tarama yalnızca **Diski tara** düğmesine basınca yapılır ve hiçbir şeyi değiştirmez.
+
+**Grafik.** Üstte diskin tamamı tek çubukta: her bölüm kendi renginde, yanında "Sistem ve diğer" ve boş alan. Altında halka grafik; bir dilime ya da yanındaki satıra tıklayınca o bölüm açılır. Bölümün içi de parça parça bir çubuğa bölünür. Her parça kapladığı yer kadar geniştir, rengi kararı gösterir: kırmızı silinebilir, turuncu gözden geçir, yeşil gerekli. Parçaya tıklayınca listede o öğeye gidilir. Sağ tıkla Finder'da gösterilir ya da Çöp Kutusu'na taşınır.
+
+| Bölüm | Neye bakılır? |
+| --- | --- |
+| Uygulamalar | Son açılma tarihi, kaç kez açıldığı, ne zamandır yüklü olduğu, şu an açık olup olmadığı |
+| Önbellekler | Son değişiklik, sahibi olan uygulamanın açık olup olmadığı; silinse de yeniden oluşur |
+| Günlükler | Ne kadar eski olduğu |
+| Geliştirici | Xcode DerivedData, simülatör önbellekleri, cihaz destek dosyaları, npm ve Gradle önbellekleri |
+| İndirilenler | Kurulum dosyaları (.dmg, .pkg, .zip…) ve ne zamandır açılmadığı |
+| Büyük dosyalar | Belgeler, Masaüstü, Filmler, Müzik ve Resimler'deki 500 MB'tan büyük dosyalar |
+| iPhone yedekleri | Yedeğin tarihi; en yenisi her zaman korunur |
+| Çöp Kutusu | Yalnızca boyutu gösterilir |
+
+**Kararlar.**
+
+- **Gerekli** olanlar silinmeye önerilmez, seçilemez ve Çöp Kutusu'na taşınamaz:
+  - Son 30 günde kullanılmış uygulamalar.
+  - Şu an açık uygulamalar.
+  - 60 günden yeni yüklenmiş uygulamalar.
+  - Apple uygulamaları.
+  - Deskling'in kendisi ve halının altındakiler.
+  - Kilitli dosyalar.
+  - Fotoğraflar ve Müzik arşivleri.
+  - En yeni iPhone yedeği.
+  - Son 30 günde açılmış indirmeler.
+  - Son 90 günde açılmış büyük dosyalar.
+- **Silinebilir** önerileri:
+  - 6 aydır açılmamış uygulamalar.
+  - Yeniden oluşturulabilen eski önbellekler ve günlükler.
+  - Eski derleme artıkları.
+  - İşi bitmiş kurulum dosyaları.
+  - Bir yıldır açılmamış indirmeler.
+- **Sık kullanılmış uygulamalar** uzun süre açılmasa da en fazla "gözden geçir" olur.
+- **Kişisel büyük dosyalar** hiçbir zaman "silinebilir" sayılmaz; kararı sana bırakılır.
+
+Her satırda kararın gerekçesi yazar, örneğin "10 ay önce kullanıldı · 4 kez açıldı · 1 yıldır yüklü". **Önerilenleri seç** yalnızca silinebilirleri seçer.
+
+**Silme.** Silmek her zaman onay ister ve dosyaları Çöp Kutusu'na taşır; kalıcı silme yoktur, Çöp Kutusu'ndan geri alınabilir. Yer, Çöp Kutusu Finder'dan boşaltılınca açılır. Taşıma anında açık olan uygulama taşınmaz.
+
+**Bellek.** Aynı sekmenin **Bellek** sayfasında şunlar var:
+
+- Belleğin dağılımı: uygulamalar, kablolu, sıkıştırılmış ve önbellek.
+- Bellek baskısı ve takas kullanımı.
+- Açık uygulamaların yardımcı süreçleriyle birlikte kullandığı bellek.
+
+300 MB'tan fazla kullanan ve 30 dakikadır arka planda bekleyen uygulamalar "kapatılabilir" diye işaretlenir. Bu uygulamalar **Belleği temizle** ile tek seferde kapatılır. Hiçbir zaman kapatılmaya önerilmeyenler:
+
+- Öndeki uygulama.
+- Ses çalan uygulama.
+- Az önce kullanılan uygulama.
+- Deskling ve Finder.
+
+Uygulamalar nazikçe kapatılır; kaydedilmemiş belge varsa uygulama kendisi sorar. **Önbelleği boşalt**, macOS'un `purge` aracını çalıştırır. Yönetici parolasını macOS kendi penceresinde sorar ve etkisi geçicidir.
+
 ## Denetim paneli
 
 <div align="center">
@@ -266,6 +373,8 @@ Panele menü çubuğundaki yuvarlak simgeden ulaşırsın.
 | **Geçmiş** | Toplanan her dosyayı gösterir ve tek tıkla masaüstüne geri koyar. |
 | **Portlar** | Dinlenen portlar ve Docker konteynerleri. |
 | **Odak** | Pomodoro sayacı, içecek seçimi, süreler, görünüm ve robot/kar senkronu. |
+| **Disk** | Disk analizi, parça parça grafik, silinebilir öneriler ve bellek temizleme. |
+| **Ada** | Dinamik adayı ve her etkinliği açıp kapatma, açılma gecikmesi ve davranışlar. |
 | **Ayarlar** | Otomatik toplama süresi, robot hızı, hazne kapasitesi, kar, küreme aracı, halı boyutu, açılışta başlatma ve sesler. |
 
 ## Nasıl çalışır?
@@ -346,6 +455,7 @@ open /Applications/Deskling.app
 | **Masaüstü klasörü** | Ekran görüntülerini bulmak için |
 | **Finder otomasyonu** | Simgelerin yerini öğrenmek ve çarpılan simgeleri kaydırmak için |
 | **Bildirimler** (isteğe bağlı) | Pomodoro süresi bitince haber vermek için |
+| **Müzik / Spotify / tarayıcı otomasyonu** (isteğe bağlı) | Dinamik adada çalan parçanın kapağını, konumunu göstermek ve denetlemek için |
 | **Erişilebilirlik** (isteğe bağlı) | Pano geçmişinden seçilen kaydı öndeki uygulamaya kendiliğinden yapıştırmak için |
 
 Uygulama yerel olarak imzalandığı için her yeniden derlemeden sonra macOS izinleri yeniden sorabilir.
@@ -410,6 +520,23 @@ Sources/
 │   ├── TeaGlass.swift, TurkishCoffee.swift, CoffeeMug.swift, BeerPint.swift  İçecekler
 │   ├── DrinkIcons.swift       Menü çubuğu simgeleri
 │   └── PomodoroCheck.swift, PomodoroSyncCheck.swift, DrinkUICheck.swift  Testler
+├── Island/
+│   ├── IslandCore.swift        Çentik ölçüsü, yerleşim, ayarlar, zamanlayıcı ve üzerine gelme mantığı
+│   ├── IslandManager.swift     Hangi etkinliğin görüneceği, bildirimler ve uyarılar
+│   ├── IslandController.swift  Menü çubuğunun üstündeki pencere, fare takibi, tam ekran
+│   ├── IslandSensors.swift     Pil, ses düzeyi ve çıkış aygıtı
+│   ├── NowPlaying.swift        Müzik ve Spotify: parça, kapak, renk ve denetimler
+│   ├── IslandShelf.swift       Dosya rafı
+│   ├── IslandViews.swift, IslandExpanded.swift  Ada görünümleri
+│   ├── IslandTab.swift         Ada sekmesi
+│   ├── IslandModel.swift       Pomodoro, robot ve pano bağlantısı
+│   └── IslandCheck.swift       Testler ve görsel galeri
+├── Disk/
+│   ├── DiskModel.swift         Bölümler, kararlar ve karar kuralları
+│   ├── DiskScanner.swift       Salt okunur tarama ve Çöp Kutusu'na taşıma
+│   ├── MemoryCenter.swift      Bellek sayaçları, uygulamaların belleği ve kapatma önerileri
+│   ├── DiskViews.swift         Disk sekmesi, halka grafik ve parça çubuğu
+│   └── DiskCheck.swift         Testler, salt okunur rapor ve görsel galeri
 ├── BlackHole/
 │   ├── BlackHoleController.swift Kara delik penceresi, sürükle bırak ve animasyonlar
 │   ├── HoleRenderer.swift        Işığı büken diskin Metal çizimi
@@ -492,10 +619,40 @@ Deskling.app/Contents/MacOS/Deskling --pomo-sync-check
 Deskling.app/Contents/MacOS/Deskling --drink-ui-check
 ```
 
+```bash
+Deskling.app/Contents/MacOS/Deskling --island-check
+```
+
+```bash
+Deskling.app/Contents/MacOS/Deskling --rug-lock-check
+```
+
+```bash
+Deskling.app/Contents/MacOS/Deskling --disk-check
+```
+
+`--disk-check`, sahte bir ev klasöründe tarar. Çöp Kutusu'na taşımayı da sahte bir klasörle dener. Gerçek dosyalara ve uygulamalara dokunmaz.
+
+Gerçek diskte yalnızca okuyarak bir özet görmek için şunu kullan; uygulamalar, önbellekler, günlükler ve bellek listelenir:
+
+```bash
+Deskling.app/Contents/MacOS/Deskling --disk-report
+```
+
+Adanın bütün durumlarını PNG olarak çizmek için:
+
+```bash
+Deskling.app/Contents/MacOS/Deskling --island-gallery /tmp/ada
+```
+
 ## Bilinen sınırlar
 
 - Robot, halı ve kar yalnızca ana ekranda çalışır.
 - Masaüstünde "Izgaraya hizala" veya otomatik sıralama açıksa Finder itilen simgeleri kendi düzenine geri çekebilir.
 - Kar açıkken uygulama işlemcinin yaklaşık %8-10'unu kullanır. Masaüstündeki içecek yüksek animasyonda yaklaşık %5, düşükte %2-3 ekler.
+- macOS 15.4'ten beri sistemin "şu an çalan" bilgisi Apple dışındaki uygulamalara kapalı. Dinamik ada bu yüzden Müzik ve Spotify'ı kendi bildirimlerinden, tarayıcıları sekmelerden okur. Firefox'ta yalnızca öndeki sekmenin başlığı görünür; desteklenen sitelerin dışındaki sekmelerde çalan ses görünmez.
+- Ada, sistemin kendi ses göstergesinin yerine geçmez; ikisi birlikte görünür.
+- Disk taramasında macOS, İndirilenler ve Belgeler için bir kez izin ister. Mail, Mesajlar ve Safari gibi korumalı klasörler Tam Disk Erişimi olmadan ölçülmez; bunlar "Sistem ve diğer" içinde kalır.
+- Uygulamaların "son açılma" bilgisi Spotlight'tan gelir. Spotlight'ın kaydı yoksa uygulama en fazla "gözden geçir" olur.
 - Derleme betiği yalnızca Apple Silicon (arm64) için paket üretir.
 - Mac açılışında başlatma yalnızca `/Applications` klasöründeki kopyada çalışır.

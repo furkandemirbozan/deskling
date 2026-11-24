@@ -25,6 +25,8 @@ final class AppModel: ObservableObject {
 
     /// Portlar sekmesi: dinlenen portlar ve Docker konteynerleri.
     let dev = DevCenter()
+    let disk = DiskCenter()
+    let memory = MemoryCenter()
 
     // Pano
     let clipboard: ClipboardStore
@@ -93,6 +95,8 @@ final class AppModel: ObservableObject {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
         }
     }
+    /// Halının altı Touch ID ile kilitli mi?
+    @Published var rugTouchID: Bool { didSet { d.set(rugTouchID, forKey: "rugTouchID") } }
     private weak var rugControl: RugController?
 
     // Kar
@@ -118,6 +122,10 @@ final class AppModel: ObservableObject {
     var pomoAlerts: PomodoroAlerts
     var pomoListeners: [() -> Void] = []
     var pomoTransitionListeners: [(PomoTransition) -> Void] = []
+
+    // Dinamik ada
+    let island: IslandManager
+    var islandBag: Set<AnyCancellable> = []
     @Published var pomoEnabled: Bool {
         didSet { d.set(pomoEnabled, forKey: "pomoEnabled"); if !pomoEnabled { pomo.reset() }; pomoChanged() }
     }
@@ -213,7 +221,7 @@ final class AppModel: ObservableObject {
             ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("\(AppInfo.name)/Halı Altı", isDirectory: true))
         d.register(defaults: ["mode": "automatic", "speed": 240.0, "capacity": 3, "minAge": 60, "sounds": true,
-                              "launchAtLogin": true, "bumpIcons": true, "rugVisible": true, "rugScale": 1.0,
+                              "launchAtLogin": true, "bumpIcons": true, "rugVisible": true, "rugScale": 1.0, "rugTouchID": true,
                               "snowEnabled": true, "snowIntensity": 0.5, "snowLimit": 1.0, "snowPlowEnabled": true, "snowSculpt": true, "holeEnabled": true, "holeTrashOriginal": false,
                               "holeImageFormat": "jpg", "holeQuality": "medium", "holeStripLocation": true,
                               "clipEnabled": true, "clipLimit": 200])
@@ -233,6 +241,7 @@ final class AppModel: ObservableObject {
         bumpIcons = d.bool(forKey: "bumpIcons")
         rugVisible = d.bool(forKey: "rugVisible")
         rugScale = d.double(forKey: "rugScale")
+        rugTouchID = d.bool(forKey: "rugTouchID")
         snowEnabled = d.bool(forKey: "snowEnabled")
         snowIntensity = d.double(forKey: "snowIntensity")
         snowLimit = d.double(forKey: "snowLimit")
@@ -268,6 +277,9 @@ final class AppModel: ObservableObject {
                                defaults: desktopOverride == nil ? d : nil)
         pomoAlerts = desktopOverride == nil ? .system()
             : PomodoroAlerts(notify: { _, _ in }, playSound: { _ in }, keepAwake: FakeKeepAwake())
+        // Testler adanın ayarlarını, rafını ve zamanlayıcısını gerçek ayarlara yazmaz.
+        island = IslandManager(settings: IslandSettings(store: desktopOverride == nil ? d : nil), pomo: pomo,
+                               store: desktopOverride == nil ? d : nil)
         protected = Set(d.stringArray(forKey: "protected") ?? [])
         engine = RobotEngine(base: DesktopMap.basePoint(), trash: DesktopMap.stationApproach())
         engine.maxSpeed = speed
@@ -280,6 +292,7 @@ final class AppModel: ObservableObject {
         }
         wire()
         connectPomodoro()
+        connectIsland()
     }
 
     // MARK: - Simgelere çarpma

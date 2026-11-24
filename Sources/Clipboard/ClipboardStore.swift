@@ -6,6 +6,8 @@ final class ClipboardStore: ObservableObject {
     @Published private(set) var items: [ClipItem] = []
     @Published var enabled = true { didSet { enabled ? start() : stop() } }
     @Published var limit = 200 { didSet { trim(); scheduleSave() } }
+    /// Panodan yeni bir metin yakalanınca (dinamik ada kısa bir onay gösterir).
+    var onCapture: ((ClipItem) -> Void)?
 
     let pasteboard: NSPasteboard
     let fileURL: URL?
@@ -68,6 +70,7 @@ final class ClipboardStore: ObservableObject {
         var rtf = pasteboard.data(forType: .rtf)
         if (rtf?.count ?? 0) > Self.maxRTF { rtf = nil }
         add(text: text, rtf: rtf, app: frontApp())
+        if let first = items.first { onCapture?(first) }
     }
 
     /// Aynı metin yeniden kopyalanınca yeni kayıt açılmaz, var olan en üste çıkar.
