@@ -21,6 +21,19 @@ final class AppModel: ObservableObject {
     @Published var busy = false
     @Published var paused = false
     @Published var message: String?
+    @Published var panelTab: PanelTab = .found
+
+    /// Portlar sekmesi: dinlenen portlar ve Docker konteynerleri.
+    let dev = DevCenter()
+
+    // Pano
+    let clipboard: ClipboardStore
+    @Published var clipEnabled: Bool { didSet { d.set(clipEnabled, forKey: "clipEnabled"); clipboard.enabled = clipEnabled; onShortcutChange?(clipShortcut) } }
+    @Published var clipLimit: Int { didSet { d.set(clipLimit, forKey: "clipLimit"); clipboard.limit = clipLimit } }
+    @Published var clipShortcut: ClipShortcut { didSet { clipShortcut.save(d); onShortcutChange?(clipShortcut) } }
+    @Published var clipShortcutWorks = true
+    var onShortcutChange: ((ClipShortcut?) -> Void)?
+    var onShortcutRecording: ((Bool) -> Void)?
 
     // Ayarlar
     @Published var mode: CleanMode { didSet { d.set(mode.rawValue, forKey: "mode"); evaluateAuto() } }
@@ -164,13 +177,18 @@ final class AppModel: ObservableObject {
     init(desktopOverride: URL? = nil) {
         desktop = desktopOverride ?? FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask)[0]
         usesRealDesktop = desktopOverride == nil
+        // Testler gerçek panoya ve gerçek geçmiş dosyasına dokunmaz.
+        clipboard = desktopOverride == nil
+            ? ClipboardStore(fileURL: ClipboardStore.defaultFile)
+            : ClipboardStore(pasteboard: NSPasteboard(name: NSPasteboard.Name("robo-test-\(UUID().uuidString)")), fileURL: nil)
         rugStore = RugStore(dir: desktopOverride?.appendingPathComponent(".hali/Hali Alti", isDirectory: true)
             ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
                 .appendingPathComponent("RoboSupurge/Halı Altı", isDirectory: true))
         d.register(defaults: ["mode": "automatic", "speed": 240.0, "capacity": 3, "minAge": 60, "sounds": true,
                               "launchAtLogin": true, "bumpIcons": true, "rugVisible": true, "rugScale": 1.0,
                               "snowEnabled": true, "snowIntensity": 0.5, "snowLimit": 1.0, "snowPlowEnabled": true, "snowSculpt": true, "holeEnabled": true, "holeTrashOriginal": false,
-                              "holeImageFormat": "jpg", "holeQuality": "medium", "holeStripLocation": true])
+                              "holeImageFormat": "jpg", "holeQuality": "medium", "holeStripLocation": true,
+                              "clipEnabled": true, "clipLimit": 200])
         // Önceki sürümden gelenler de 1 saat kuralına geçsin.
         if !d.bool(forKey: "autoHourV1") {
             d.set(CleanMode.automatic.rawValue, forKey: "mode")
@@ -191,6 +209,9 @@ final class AppModel: ObservableObject {
         snowLimit = d.double(forKey: "snowLimit")
         snowPlowEnabled = d.bool(forKey: "snowPlowEnabled")
         snowSculpt = d.bool(forKey: "snowSculpt")
+        clipEnabled = d.bool(forKey: "clipEnabled")
+        clipLimit = d.integer(forKey: "clipLimit")
+        clipShortcut = ClipShortcut.load(d)
         holeEnabled = d.bool(forKey: "holeEnabled")
         holeTrashOriginal = d.bool(forKey: "holeTrashOriginal")
         holeImageFormat = d.string(forKey: "holeImageFormat") ?? "jpg"

@@ -181,17 +181,74 @@ enum SelfTest {
         }
         model.history = [CleanRecord(name: names[0], originalPath: "/x", trashPath: "/y", date: Date())]
 
+        // Portlar sekmesi örnek verilerle çizilir; gerçek süreçler ve proje adları görüntüye girmez.
+        let me = getuid()
+        var sample = PortScanner.parse("p4120\ncnode\nu\(me)\nn*:3000\np4188\ncpython3.12\nu\(me)\nn127.0.0.1:8000\n" +
+                                       "p3001\ncruby\nu\(me)\nn127.0.0.1:4000\np671\ncControlCenter\nu\(me)\nn*:5000\n")
+        let extra: [Int32: (String, String, String)] = [
+            4120: ("/usr/local/bin/node", "/usr/local/bin/node /p/node_modules/.bin/vite --port 3000", "/Projeler/magaza-web"),
+            4188: ("/usr/bin/python3", "/usr/bin/python3 -m uvicorn app.main:app --reload", "/Projeler/api"),
+            3001: ("/usr/bin/ruby", "/usr/bin/ruby bin/jekyll serve", "/Projeler/blog"),
+            671: ("/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter", "", "/"),
+        ]
+        for i in sample.indices {
+            if let e = extra[sample[i].pid] { sample[i].executable = e.0; sample[i].commandLine = e.1; sample[i].cwd = e.2 }
+        }
+        let ports = sample
+        let containers = DockerService.parse("""
+        {"ID":"a1","Names":"magaza-postgres","Image":"postgres:17","State":"running","Status":"Up 2 hours","Ports":"127.0.0.1:5432->5432/tcp","Labels":"com.docker.compose.project=magaza"}
+        {"ID":"b2","Names":"magaza-redis","Image":"redis:7","State":"running","Status":"Up 2 hours","Ports":"0.0.0.0:6379->6379/tcp","Labels":"com.docker.compose.project=magaza"}
+        {"ID":"c3","Names":"eski-mongo","Image":"mongo:8","State":"exited","Status":"Exited (0) 3 days ago","Ports":"","Labels":""}
+        """)
+        model.dev.scanPorts = { ports }
+        model.dev.scanDocker = { (.ready, containers) }
+        model.dev.showSystem = true
+
         for tab in PanelTab.allCases {
-            let host = NSHostingView(rootView: PanelView(model: model, tab: tab).background(Color(nsColor: .windowBackgroundColor)))
+            model.panelTab = tab
+            let host = NSHostingView(rootView: PanelView(model: model).background(Color(nsColor: .windowBackgroundColor)))
             host.frame = NSRect(x: 0, y: 0, width: 460, height: 640)
             let w = NSWindow(contentRect: host.frame, styleMask: [.titled], backing: .buffered, defer: false)
             w.contentView = host
             host.layoutSubtreeIfNeeded()
-            RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+            RunLoop.main.run(until: Date().addingTimeInterval(tab == .ports ? 1.0 : 0.4))
             if let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) {
                 host.cacheDisplay(in: host.bounds, to: rep)
                 save(rep, dir.appendingPathComponent("panel-\(PanelTab.allCases.firstIndex(of: tab)!).png"))
             }
         }
+
+        // Pano penceresi, örnek kayıtlarla
+        let board = NSPasteboard(name: NSPasteboard.Name("robo-snap-\(UUID().uuidString)"))
+        let store = ClipboardStore(pasteboard: board, fileURL: nil)
+        let finder = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.finder")
+        let samples: [(String, String?)] = [
+            ("Toplantı notları: sunum perşembe 14.00'te, slaytları Ayşe hazırlayacak.", "com.apple.Notes"),
+            ("#4F46E5", "com.apple.Safari"),
+            ("https://developer.apple.com/documentation/appkit", "com.apple.Safari"),
+            ("func selamla(_ ad: String) -> String {\n    return \"Merhaba, \\(ad)!\"\n}", "com.apple.dt.Xcode"),
+            ("rgb(16, 185, 129)", "com.apple.Safari"),
+            ("Kargo takip no: 1Z 999 AA1 01 2345 6784", "com.apple.mail"),
+        ]
+        for (text, bundle) in samples.reversed() {
+            store.add(text: text, rtf: nil, app: nil)
+            let path = bundle.flatMap { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0)?.path } ?? finder?.path
+            if let i = store.items.firstIndex(where: { $0.text == text }) { store.setSource(at: i, name: nil, path: path) }
+        }
+        store.togglePin(store.items[5])
+        let clip = ClipboardPanelController(store: store)
+        clip.state.selection = 1
+        let view = NSHostingView(rootView: ClipboardView(store: store, state: clip.state, list: { clip.list }, choose: { _, _ in }, close: {})
+            .background(Color(nsColor: .windowBackgroundColor)))
+        view.frame = NSRect(origin: .zero, size: ClipboardPanelController.size)
+        let w = NSWindow(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        w.contentView = view
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.5))
+        if let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) {
+            view.cacheDisplay(in: view.bounds, to: rep)
+            save(rep, dir.appendingPathComponent("pano.png"))
+        }
+        board.releaseGlobally()
     }
 }

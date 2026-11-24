@@ -36,6 +36,8 @@ Masaüstün ekran görüntüleriyle dolduğunda robota çift tıkla. Robot istas
 - **Gerçekçi kar:** Pencerelerin üstünde ve ekranın altında birikir, pencere sallanınca veya kapanınca dökülür.
 - **Kar küreme aracı:** Zemin dolunca küçük bir kamyon gelip karı temizler.
 - **Kara delik:** Sol üst köşedeki kara deliğe dosya bırak: görselleri, PDF'leri ve videoları sıkıştırır, PDF birleştirir, ZIP yapar, arşiv açar, JSON ve CSV dönüştürür.
+- **Portlar ve servisler:** Dinlenen portları gör, tek tıkla tarayıcıda aç ya da kapat, Docker konteynerlerini başlat ve durdur.
+- **Pano yöneticisi:** ⇧⌘V ile kopyalama geçmişine ulaş, klavyeyle seç ve yapıştır.
 - **Kar topu ve kardan adam:** Biriken karı fareyle yuvarla, topları üst üste koyup süsle. Yüksekten düşen kardan adam kar yığınına döner.
 - **Pil ve şarj:** Pili azalan robot görevine ara verip istasyonda şarj olur, sonra kaldığı yerden devam eder.
 
@@ -172,6 +174,48 @@ Videolar da aynı kalite ayarını kullanır: düşük kalite 720p H.264, orta k
 brew install ffmpeg
 ```
 
+## Portlar ve servisler
+
+<div align="center">
+<img src="docs/images/portlar.png" width="460" alt="Dinlenen portlar ve Docker konteynerleri">
+</div>
+
+Denetim panelindeki **Portlar** sekmesi, terminal açıp `lsof` yazmadan geliştirme ortamını yönetmeni sağlar. Menü çubuğundaki **Portlar ve Servisler** ile doğrudan açılır.
+
+- O an dinlenen bütün TCP portlarını, kullanan uygulamayı, çalıştığı klasörü ve komutunu gösterir. IPv4 ve IPv6 kayıtları tek satırda birleşir.
+- Her port **yalnızca bu Mac** ya da **ağa açık** diye işaretlenir.
+- 🧭 ile `http://localhost:PORT` tarayıcıda açılır. ✕ ile süreç kibarca kapatılır, kapanmazsa **Zorla kapat** çıkar.
+- Başka kullanıcıya ait süreçler kapatılamaz. macOS servisleri için önce onay istenir. 5000 ve 7000 portlarını tutan AirPlay Alıcısı için nasıl kapatılacağı yazılır.
+- Docker konteynerleri, Compose proje adı ve yayınladığı portlarla listelenir. Tek tıkla başlatılır ya da durdurulur. Docker Desktop kapalıysa açma düğmesi çıkar.
+- Sekme açıkken liste 4 saniyede bir yenilenir, kapalıyken hiç tarama yapılmaz.
+
+## Pano yöneticisi
+
+<div align="center">
+<img src="docs/images/pano.png" width="470" alt="Pano geçmişi penceresi">
+</div>
+
+Kopyaladığın metinleri, bağlantıları, kod parçalarını ve renk kodlarını kaynak uygulamasıyla birlikte saklar. **⇧⌘V** ile hangi uygulamadaysan imlecin yanında, odağı çalmadan açılır.
+
+| Tuş | Ne yapar? |
+| --- | --- |
+| ↑ ↓ | Kayıtlar arasında gezinir |
+| ↩ | Seçili kaydı öndeki uygulamaya yapıştırır |
+| ⇧↩ ya da ⇧ tık | Biçimi bırakıp düz metin olarak yapıştırır |
+| ⌘1 – ⌘9 | İlk dokuz kayıttan birini hemen yapıştırır |
+| ⌘P | Sabitler; sabitlenenler en üstte kalır ve silinmez |
+| ⌘⌫ | Kaydı siler |
+| ⎋ | Pencereyi kapatır |
+
+- Arama Türkçe harflere duyarsızdır. "renk", "link" ya da "kod" yazınca o türdekiler gelir.
+- Renk kodlarının yanında rengi görünür. HEX, RGB ve HSL arasında tek tıkla çevrilip kopyalanır.
+- Aynı metni yeniden kopyalarsan yeni kayıt açılmaz, var olan en üste çıkar.
+- Pano yalnızca değiştiğinde okunur (`changeCount`), boştayken işlemciye yük olmaz.
+- Parola yöneticilerinin gizli işaretlediği kopyalar ve Finder'da kopyalanan dosyalar kaydedilmez.
+- Geçmiş yalnızca bu Mac'te, yalnızca senin okuyabildiğin bir dosyada (`~/Library/Application Support/RoboSupurge/pano.json`) tutulur.
+
+Otomatik yapıştırma için macOS **Erişilebilirlik** izni ister. İzin yoksa seçtiğin kayıt panoya kopyalanır, ⌘V ile yapıştırırsın. Kısayolu, kayıt sınırını ve izni **Ayarlar > Pano** bölümünden değiştirebilirsin. ⇧⌘V bazı uygulamalarda "Biçimi eşleştirerek yapıştır" kısayoludur; istersen başka bir kısayol seçebilirsin.
+
 ## Denetim paneli
 
 <div align="center">
@@ -253,12 +297,15 @@ open "/Applications/Robo Süpürge.app"
 
 ### İzinler
 
-İlk kullanımda macOS iki izin sorar:
+İlk kullanımda macOS iki izin sorar. Üçüncüsü isteğe bağlıdır:
 
 | İzin | Neden gerekli? |
 | --- | --- |
 | **Masaüstü klasörü** | Ekran görüntülerini bulmak için |
 | **Finder otomasyonu** | Simgelerin yerini öğrenmek ve çarpılan simgeleri kaydırmak için |
+| **Erişilebilirlik** (isteğe bağlı) | Pano geçmişinden seçilen kaydı öndeki uygulamaya kendiliğinden yapıştırmak için |
+
+Uygulama yerel olarak imzalandığı için her yeniden derlemeden sonra macOS izinleri yeniden sorabilir.
 
 Finder izni verilmezse robot simgelerin yerini macOS'un varsayılan yerleşimine göre tahmin eder ve simgeleri itmez.
 
@@ -293,6 +340,17 @@ Sources/
 ├── SnowCheck.swift  Kar fiziği testleri
 ├── SnowSculpt.swift Kar topu, kardan adam, kar yığını ve yer çekimi
 ├── SculptCheck.swift Kar topu testleri
+├── DevCenter/
+│   ├── PortScanner.swift  Dinlenen portlar ve Docker
+│   ├── DevCenter.swift    Portlar sekmesinin durumu ve işlemleri
+│   ├── PortsView.swift    Portlar sekmesi
+│   └── DevCheck.swift     Port ve Docker testleri
+├── Clipboard/
+│   ├── ClipItem.swift          Kayıt, tür algılama ve renk dönüşümleri
+│   ├── ClipboardStore.swift    Pano takibi ve geçmiş
+│   ├── HotKey.swift            Genel kısayol ve yapıştırma
+│   ├── ClipboardPanel.swift    Yüzer pano penceresi
+│   └── ClipboardCheck.swift    Pano testleri
 ├── BlackHole/
 │   ├── BlackHoleController.swift Kara delik penceresi, sürükle bırak ve animasyonlar
 │   ├── HoleRenderer.swift        Işığı büken diskin Metal çizimi
@@ -349,6 +407,14 @@ Testler geçici klasörlerde çalışır, gerçek masaüstüne dokunmaz.
 
 ```bash
 "Robo Süpürge.app/Contents/MacOS/RoboSupurge" --hole-ui-check
+```
+
+```bash
+"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --dev-check
+```
+
+```bash
+"Robo Süpürge.app/Contents/MacOS/RoboSupurge" --clip-check
 ```
 
 ## Bilinen sınırlar

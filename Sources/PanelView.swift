@@ -1,19 +1,18 @@
 import SwiftUI
 
 enum PanelTab: String, CaseIterable, Identifiable {
-    case found = "Bulunanlar", history = "Geçmiş", settings = "Ayarlar"
+    case found = "Bulunanlar", history = "Geçmiş", ports = "Portlar", settings = "Ayarlar"
     var id: String { rawValue }
 }
 
 struct PanelView: View {
     @ObservedObject var model: AppModel
-    @State var tab: PanelTab = .found
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            Picker("", selection: $tab) {
+            Picker("", selection: $model.panelTab) {
                 ForEach(PanelTab.allCases) { Text($0.rawValue).tag($0) }
             }
             .pickerStyle(.segmented)
@@ -22,9 +21,10 @@ struct PanelView: View {
             .padding(.vertical, 10)
 
             Group {
-                switch tab {
+                switch model.panelTab {
                 case .found: FoundTab(model: model)
                 case .history: HistoryTab(model: model)
+                case .ports: PortsTab(dev: model.dev)
                 case .settings: SettingsTab(model: model)
                 }
             }
@@ -309,6 +309,7 @@ struct SettingsTab: View {
                 Text("Görsel, PDF ve video bırak: sıkışır, birden çok PDF birleşir. Klasör ZIP olur, JSON düzenlenir, CSV JSON'a dönüşür. Shift ile arşiv açılır, PDF sayfalara ayrılır, görseller PDF olur, videonun sesi ayrılır ya da sessiz kısa video GIF olur. Option ile Çöp Sepeti'ne gider.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            ClipboardSettings(model: model, store: model.clipboard)
             Section("Halı") {
                 Toggle("Halıyı göster", isOn: $model.rugVisible)
                 LabeledContent("Boyut") {
@@ -329,5 +330,47 @@ struct SettingsTab: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+/// Ayarlar sekmesindeki Pano bölümü.
+struct ClipboardSettings: View {
+    @ObservedObject var model: AppModel
+    @ObservedObject var store: ClipboardStore
+    @State private var trusted = Paster.trusted
+
+    var body: some View {
+        Section("Pano") {
+            Toggle("Pano geçmişini tut", isOn: $model.clipEnabled)
+            LabeledContent("Kısayol") {
+                HStack(spacing: 8) {
+                    if !model.clipShortcutWorks {
+                        Label("Başka bir uygulama kullanıyor", systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange).font(.caption)
+                    }
+                    ShortcutRecorder(shortcut: $model.clipShortcut) { model.onShortcutRecording?($0) }
+                }
+            }
+            .disabled(!model.clipEnabled)
+            Stepper("En fazla \(model.clipLimit) kayıt", value: $model.clipLimit, in: 50...1000, step: 50)
+                .disabled(!model.clipEnabled)
+            LabeledContent("Otomatik yapıştırma") {
+                if trusted {
+                    Label("Açık", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                } else {
+                    Button("İzin ver") { Paster.requestAccess() }
+                }
+            }
+            .onReceive(Timer.publish(every: 2, on: .main, in: .common).autoconnect()) { _ in trusted = Paster.trusted }
+            HStack {
+                Text("\(store.items.count) kayıt").foregroundStyle(.secondary)
+                Spacer()
+                Button("Geçmişi temizle") { store.clear(keepPinned: true) }
+                    .disabled(store.items.isEmpty)
+                    .help("Sabitlenen kayıtlar kalır")
+            }
+            Text("Parola yöneticilerinin gizli işaretlediği kopyalar kaydedilmez. Geçmiş yalnızca bu Mac'te, yalnızca senin okuyabildiğin bir dosyada tutulur. Otomatik yapıştırma için Erişilebilirlik izni gerekir; izin yoksa seçtiğin kayıt panoya kopyalanır.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 }

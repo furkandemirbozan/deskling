@@ -13,6 +13,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var snow: SnowController?
     private var hole: BlackHoleController?
     private var holeCheck: HoleUICheck?
+    private var clipPanel: ClipboardPanelController?
+    private var devCheck: DevCheck?
+    private var clipCheck: ClipboardCheck?
 
     func applicationDidFinishLaunching(_ note: Notification) {
         NSApp.applicationIconImage = RobotArt.appIcon(256)
@@ -27,6 +30,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if let i = args.firstIndex(of: "--motion-check") {
             motionCheck = MotionCheck(output: i + 1 < args.count ? URL(fileURLWithPath: args[i + 1]) : nil)
             motionCheck?.run()
+            return
+        }
+        if args.contains("--dev-check") {
+            devCheck = DevCheck()
+            devCheck?.run()
+            return
+        }
+        if args.contains("--clip-check") {
+            clipCheck = ClipboardCheck()
+            clipCheck?.run()
             return
         }
         if let i = args.firstIndex(of: "--hole-ui-check") {
@@ -61,6 +74,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         model.connectSnow(snow!)
         hole = BlackHoleController()
         model.connectHole(hole!)
+        setUpClipboard()
 
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         status.button?.image = NSImage(systemSymbolName: "circle.circle.fill", accessibilityDescription: "Robo Süpürge")
@@ -209,6 +223,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(info)
         menu.addItem(.separator())
         add(menu, "Denetim Panelini Aç", #selector(showPanel))
+        if model.clipEnabled {
+            add(menu, "Pano Geçmişi  \(model.clipShortcut.label)", #selector(openClipboard))
+        }
+        add(menu, "Portlar ve Servisler", #selector(openPorts))
         add(menu, "Toz Haznesini Aç", #selector(openBox))
         add(menu, model.snowEnabled ? "Karı Durdur" : "Kar Yağdır", #selector(toggleSnow))
         add(menu, model.snowPlowEnabled ? "Küreme Aracını Kapat" : "Küreme Aracını Aç", #selector(togglePlow))
@@ -250,6 +268,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     @objc func togglePlow() { model.snowPlowEnabled.toggle() }
     @objc func openRug() { NSWorkspace.shared.open(model.rugStore.dir) }
     @objc func toggleHole() { model.holeEnabled.toggle() }
+    @objc func openClipboard() { clipPanel?.show() }
+    @objc func openPorts() {
+        model.panelTab = .ports
+        showPanel()
+    }
+
+    /// Pano izleme, genel kısayol ve yüzer pencere.
+    private func setUpClipboard() {
+        let panel = ClipboardPanelController(store: model.clipboard)
+        clipPanel = panel
+        model.clipboard.limit = model.clipLimit
+        model.clipboard.enabled = model.clipEnabled
+        let apply: (ClipShortcut?) -> Void = { [weak self] s in
+            guard let self else { return }
+            panel.setShortcut(self.model.clipEnabled ? s : nil)
+            self.model.clipShortcutWorks = !self.model.clipEnabled || panel.shortcutWorks
+        }
+        model.onShortcutChange = apply
+        model.onShortcutRecording = { [weak self] recording in
+            guard let self else { return }
+            panel.setShortcut(recording || !self.model.clipEnabled ? nil : self.model.clipShortcut)
+        }
+        apply(model.clipShortcut)
+    }
     @objc func toggleRug() {
         model.rugVisible.toggle()
     }
