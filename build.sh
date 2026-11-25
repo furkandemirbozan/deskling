@@ -9,7 +9,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 swiftc -O -swift-version 5 -target arm64-apple-macos13.0 \
   -framework AppKit -framework SwiftUI -framework QuartzCore -framework Metal -framework CoreServices -framework PDFKit -framework ImageIO -framework AVFoundation -framework CoreMedia -framework Carbon -framework IOKit -framework UserNotifications -framework CoreAudio \
-  Sources/*.swift Sources/BlackHole/*.swift Sources/DevCenter/*.swift Sources/Clipboard/*.swift Sources/Pomodoro/*.swift Sources/Island/*.swift Sources/Disk/*.swift -o "$APP/Contents/MacOS/Deskling"
+  Sources/*.swift Sources/BlackHole/*.swift Sources/DevCenter/*.swift Sources/Clipboard/*.swift Sources/Pomodoro/*.swift Sources/Island/*.swift Sources/Disk/*.swift Sources/Keys/*.swift -o "$APP/Contents/MacOS/Deskling"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>

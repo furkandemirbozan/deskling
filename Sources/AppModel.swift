@@ -126,6 +126,7 @@ final class AppModel: ObservableObject {
 
     // Dinamik ada
     let island: IslandManager
+    let keys: KeySoundCenter
     var islandBag: Set<AnyCancellable> = []
     @Published var pomoEnabled: Bool {
         didSet { d.set(pomoEnabled, forKey: "pomoEnabled"); if !pomoEnabled { pomo.reset() }; pomoChanged() }
@@ -285,6 +286,10 @@ final class AppModel: ObservableObject {
         // Testler adanın ayarlarını, rafını ve zamanlayıcısını gerçek ayarlara yazmaz.
         island = IslandManager(settings: IslandSettings(store: desktopOverride == nil ? d : nil), pomo: pomo,
                                store: desktopOverride == nil ? d : nil)
+        // Testler gerçek paket klasörüne ve ayarlara dokunmaz.
+        keys = KeySoundCenter(store: SoundPackStore(cache: desktopOverride == nil ? SoundPackStore.liveCache()
+                                                        : FileManager.default.temporaryDirectory.appendingPathComponent("deskling-keys-test")),
+                              defaults: desktopOverride == nil ? d : nil)
         protected = Set(d.stringArray(forKey: "protected") ?? [])
         engine = RobotEngine(base: DesktopMap.basePoint(), trash: DesktopMap.stationApproach())
         engine.maxSpeed = speed

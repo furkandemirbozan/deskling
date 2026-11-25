@@ -118,9 +118,11 @@ enum IslandTransientKind: Equatable {
     case robot(String)
     case shelf(Int)
     case hole(String, ok: Bool)
+    case keyboard(String)
 
     var feature: IslandFeature {
         switch self {
+        case .keyboard: return .keyboard
         case .hole: return .blackHole
         case .power: return .battery
         case .volume: return .volume
@@ -140,6 +142,7 @@ enum IslandTransientKind: Equatable {
         case .robot: return 200
         case .shelf: return 92
         case .hole: return 190
+        case .keyboard: return 170
         }
     }
 
@@ -153,6 +156,7 @@ enum IslandTransientKind: Equatable {
         case .robot: return "robot"
         case .shelf: return "shelf"
         case .hole: return "hole"
+        case .keyboard: return "keyboard"
         }
     }
 }
@@ -307,11 +311,12 @@ struct RobotStatus: Equatable {
 // MARK: - Ayarlar
 
 enum IslandFeature: String, CaseIterable, Identifiable {
-    case media, pomodoro, timer, stopwatch, robot, blackHole, health, battery, volume, device, clipboard, shelf
+    case media, pomodoro, timer, stopwatch, robot, blackHole, health, battery, volume, device, clipboard, keyboard, shelf
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .keyboard: return "Klavye sesi"
         case .blackHole: return "Kara delik"
         case .health: return "Bellek ve disk uyarıları"
         case .media: return "Şu an çalan"
@@ -330,6 +335,7 @@ enum IslandFeature: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .blackHole: return "circle.dashed"
+        case .keyboard: return "keyboard"
         case .health: return "exclamationmark.triangle.fill"
         case .media: return "music.note"
         case .pomodoro: return "cup.and.saucer.fill"
@@ -351,6 +357,7 @@ enum IslandFeature: String, CaseIterable, Identifiable {
         case .timer: return "Geri sayım; bitince ada açılır ve ses çalar"
         case .stopwatch: return "Tur kaydeden kronometre"
         case .robot: return "Robot toplarken kalan görüntü sayısı, bitince özet"
+        case .keyboard: return "Ses paketi değişince adı"
         case .blackHole: return "Uzun işlerde (video sıkıştırma gibi) ilerleme, bitince sonuç"
         case .health: return "Bellek baskısı artınca ya da disk dolunca tek tıkla temizlik"
         case .battery: return "Şarja takınca, çıkarınca ve pil azalınca"

@@ -166,6 +166,20 @@ enum DiskCheck {
         check("Çöp Kutusu ölçülür", scanner.scan(.trash).first.map { $0.size >= Int64(2 * mb) && !$0.canTrash } == true)
         let everything = DiskKind.allCases.flatMap { scanner.scan($0) }
         check("halının altı ve Deskling klasörü hiç listelenmez", !everything.contains { $0.url.path.contains("Deskling") })
+        var withKeys = scanner
+        let keysDir = home.appendingPathComponent("Documents/KlavyeSesDosyaları")
+        file("Documents/KlavyeSesDosyaları/Proje/package.json", 10, age: 300)
+        file("Documents/KlavyeSesDosyaları/Proje/node_modules/x.js", 3 * mb, age: 300); dirAge("Documents/KlavyeSesDosyaları/Proje/node_modules", 300)
+        file("Documents/KlavyeSesDosyaları/dev.zip", 3 * mb, age: 300)
+        file("Documents/Baska/package.json", 10, age: 300)
+        file("Documents/Baska/node_modules/y.js", 3 * mb, age: 300); dirAge("Documents/Baska/node_modules", 300); dirAge("Documents/Baska", 300)
+        withKeys.liveProtected = { [keysDir.path] }
+        let afterKeys = DiskKind.allCases.flatMap { withKeys.scan($0) }
+        check("klavye ses paketleri klasörü hiçbir bölümde listelenmez", !afterKeys.contains { $0.url.path.contains("KlavyeSesDosyaları") })
+        check("paket klasörünü içeren Belgeler yine taranır", afterKeys.contains { $0.name == "Baska · node_modules" })
+        check("korunan klasörü içeren klasör Çöp Kutusu'na gidemez", withKeys.touchesProtected(home.appendingPathComponent("Documents"))
+              && !withKeys.isProtected(home.appendingPathComponent("Documents")))
+        check("gerçek uygulama paket klasörünü korur", DiskScanner.live().liveProtected().contains { $0.hasSuffix("KlavyeSesDosyaları") })
 
         // Çöp Kutusu'na taşıma (sahte): yalnızca seçilen ve gerekli olmayanlar gider.
         let center = DiskCenter(scanner: scanner)
@@ -176,7 +190,9 @@ enum DiskCheck {
         center.recycle = { urls, done in
             recycled += urls
             let moved = urls.compactMap { url -> URL? in
-                let to = fakeTrash.appendingPathComponent(url.lastPathComponent)
+                var to = fakeTrash.appendingPathComponent(url.lastPathComponent)
+                var n = 1
+                while fm.fileExists(atPath: to.path) { n += 1; to = fakeTrash.appendingPathComponent("\(n)-" + url.lastPathComponent) }
                 return (try? fm.moveItem(at: url, to: to)) != nil ? url : nil
             }
             done(moved, nil)

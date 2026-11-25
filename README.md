@@ -387,6 +387,37 @@ Klasörler Çöp Kutusu'na taşınır. Docker artıkları Çöp Kutusu'na gideme
 
 Uygulamalar nazikçe kapatılır; kaydedilmemiş belge varsa uygulama kendisi sorar. **Önbelleği boşalt**, macOS'un `purge` aracını çalıştırır. Yönetici parolasını macOS kendi penceresinde sorar ve etkisi geçicidir.
 
+## Klavye sesleri
+
+Deskling, mekanik klavye gibi her tuşa basışta ses çıkarabilir. Bu özellik varsayılan olarak kapalıdır; panelin **Klavye** sekmesinden ya da menü çubuğundaki **Klavye Sesi** menüsünden açılır. Aynı menüden paketler arasında geçilebilir. Paket değişince dinamik adada paketin adı kısaca görünür.
+
+**Paketler iki yerden gelir:**
+
+- **Dahili paketler:** Deskling · Tık, Tok, Daktilo ve Baloncuk. Bunlar dosya gerektirmez; sesler kodla üretilir. Daktiloda Enter'a basınca satır sonu zili çalar.
+- **Mechvibes paketleri:** [mechvibes.com](https://mechvibes.com/sound-packs?sort=downloads) üzerinde 1.000'den fazla topluluk paketi var. İndirdiğin zip'i paket klasörüne atman yeterli. Varsayılan klasör `~/Documents/KlavyeSesDosyaları`; panelden değiştirilebilir. Disk sekmesi bu klasörü hiçbir zaman silinmeye önermez ve Çöp Kutusu'na taşımaz; klasör panelden değiştirilse de korunur. Deskling klasörü izler ve yeni zip'i birkaç saniye içinde listeye ekler.
+
+Klasöre dokunulmaz: zip'ler olduğu gibi kalır, Deskling kendi kopyasını `~/Library/Application Support/Deskling/KlavyeSesleri` altına açar. Alt klasörler de (üç kata kadar) okunur. Aynı paket birden çok yerde ya da iki kez indirilmişse (`paket (1).zip`) listede bir kez görünür: aynı kimlik ya da aynı ad ve yapımcı kopya sayılır, en yeni sürüm kalır. Panel kaç kopyanın atlandığını söyler. Bir pakette şunlardan biri varsa o paket açılmaz ve panelde nedeni yazar:
+
+- Klasörün dışına çıkan dosya adları.
+- Bağlantılar (symlink).
+- Çok büyük dosyalar.
+- Ses dışı dosyalar.
+
+Mechvibes'ın 1. ve 2. sürüm paket biçimleri okunur: tek dosyalı ya da her tuşa ayrı dosyalı, tuş bırakma sesli ya da sessiz. Ogg, WAV ve MP3 dosyaları açılır.
+
+**Lisans:** Her paketin lisansı panelde görünür. "Kişisel kullanım" lisanslı paketler yalnızca kendi bilgisayarında kullanılabilir; bu yüzden paketler projeye eklenmez ve hiçbir yere gönderilmez.
+
+**Seçenekler:**
+
+- **Tuş bırakma sesi:** Pakette varsa, tuşu bırakınca da ses çıkar.
+- **Stereo:** Sol tuşlar soldan, sağdakiler sağdan duyulur.
+- **Doğal çeşitlilik:** Her basışta perde ve ses biraz değişir, makineli tüfek gibi tekrar etmez.
+- **Mikrofonda susma:** Mikrofon kullanılırken (toplantı, kayıt) sesler susar.
+
+Basılı tutulan tuşun tekrarları ses çıkarmaz. Ses motoru önceden hazırlanmış sesleri 14 kanalda üst üste çalabilir. Yazmayı bırakınca 20 saniye sonra kapanır.
+
+**Gizlilik:** Tuşları duymak için macOS'un **Giriş İzleme** izni gerekir. Deskling yalnızca hangi tuşa basıldığını anlar; yazılan metni okumaz, saklamaz, göndermez. Parola alanlarında macOS tuşları uygulamalara göstermez, o sırada ses çıkmaz. İzin verilmeden de panelin deneme alanında sesler dinlenebilir.
+
 ## Denetim paneli
 
 <div align="center">
@@ -402,6 +433,7 @@ Panele menü çubuğundaki yuvarlak simgeden ulaşırsın.
 | **Portlar** | Dinlenen portlar ve Docker konteynerleri. |
 | **Odak** | Pomodoro sayacı, içecek seçimi, süreler, görünüm ve robot/kar senkronu. |
 | **Disk** | Disk analizi, parça parça grafik, silinebilir öneriler ve bellek temizleme. |
+| **Klavye** | Klavye seslerini açma, paket seçme ve dinleme, ses düzeyi, paket klasörü ve seçenekler. |
 | **Ada** | Dinamik adayı ve her etkinliği açıp kapatma, açılma gecikmesi ve davranışlar. |
 | **Ayarlar** | Otomatik toplama süresi, robot hızı, hazne kapasitesi, kar, küreme aracı, halı boyutu, açılışta başlatma ve sesler. |
 
@@ -484,6 +516,7 @@ open /Applications/Deskling.app
 | **Finder otomasyonu** | Simgelerin yerini öğrenmek ve çarpılan simgeleri kaydırmak için |
 | **Bildirimler** (isteğe bağlı) | Pomodoro süresi bitince haber vermek için |
 | **Müzik / Spotify / tarayıcı otomasyonu** (isteğe bağlı) | Dinamik adada çalan parçanın kapağını, konumunu göstermek ve denetlemek için |
+| **Giriş İzleme** (isteğe bağlı) | Klavye seslerinin hangi tuşa basıldığını duyabilmesi için. Yazılan metin okunmaz |
 | **Erişilebilirlik** (isteğe bağlı) | Pano geçmişinden seçilen kaydı öndeki uygulamaya kendiliğinden yapıştırmak için |
 
 Uygulama yerel olarak imzalandığı için her yeniden derlemeden sonra macOS izinleri yeniden sorabilir.
@@ -566,6 +599,14 @@ Sources/
 │   ├── DiskViews.swift         Disk sekmesi, halka grafik ve parça çubuğu
 │   ├── DevCleanup.swift        Docker artıkları, bin/obj ve node_modules taraması
 │   └── DiskCheck.swift         Testler, salt okunur rapor ve görsel galeri
+├── Keys/
+│   ├── KeyCodes.swift          macOS tuş kodları, paketlerdeki tuş adları ve tuşların klavyedeki yeri
+│   ├── SoundPack.swift         Mechvibes paketlerini okuma ve zip'leri güvenle açma
+│   ├── KeySoundEngine.swift    Ses çözme ve kesme, dahili paketlerin sentezi, düşük gecikmeli çalar
+│   ├── KeyListener.swift       Tuş dinleme (Giriş İzleme) ve mikrofon takibi
+│   ├── KeySoundCenter.swift    Paketler, ayarlar ve klasör izleme
+│   ├── KeysTab.swift           Klavye sekmesi
+│   └── KeysCheck.swift         Testler ve salt okunur paket raporu
 ├── BlackHole/
 │   ├── BlackHoleController.swift Kara delik penceresi, sürükle bırak ve animasyonlar
 │   ├── HoleRenderer.swift        Işığı büken diskin Metal çizimi
@@ -666,6 +707,23 @@ Gerçek diskte yalnızca okuyarak bir özet görmek için şunu kullan; uygulama
 
 ```bash
 Deskling.app/Contents/MacOS/Deskling --disk-report
+```
+
+```bash
+Deskling.app/Contents/MacOS/Deskling --keys-check
+```
+
+`--keys-check`, geçici klasörlerde çalışır. Kontrol ettikleri:
+
+- Sahte zip'ler, bağlantı içeren ve bozuk paketler.
+- Ses kesme.
+- Dahili paketler.
+- Tuş eşlemesi.
+
+Gerçek paket klasörüne dokunmaz, tuş dinlemez, ses çalmaz. Bir klasördeki paketlerin hepsinin açılıp açılmadığını görmek için şunu kullan; paketler geçici bir yere açılır ve hiçbir şey değişmez:
+
+```bash
+Deskling.app/Contents/MacOS/Deskling --keys-report ~/Documents/KlavyeSesDosyaları
 ```
 
 Adanın bütün durumlarını PNG olarak çizmek için:

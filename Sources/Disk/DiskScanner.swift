@@ -9,6 +9,8 @@ struct DiskScanner {
     var runningBundles: () -> Set<String> = DiskScanner.running
     /// Bunların içi ve kendisi korunur (Deskling'in klasörleri, halının altı…).
     var protectedPaths: [String] = []
+    /// Çalışırken yeri değişebilen korunan klasörler (ör. klavye ses paketleri).
+    var liveProtected: () -> [String] = { [] }
     var largeThreshold: Int64 = 500 * 1_048_576
     var minimumSize: Int64 = 1_048_576
     var now: () -> Date = Date.init
@@ -25,6 +27,8 @@ struct DiskScanner {
         var s = DiskScanner(home: home, appDirs: [URL(fileURLWithPath: "/Applications"), home.appendingPathComponent("Applications")],
                             protectedPaths: prot)
         s.dockerJSON = { DevCleanup.dockerJSON() }
+        // Klavye ses paketleri hiçbir zaman silinmeye önerilmez; klasör panelden değiştirilse de.
+        s.liveProtected = { [KeySoundCenter.currentFolder().standardizedFileURL.path] }
         return s
     }
 
@@ -53,10 +57,18 @@ struct DiskScanner {
 
     private func lib(_ p: String) -> URL { home.appendingPathComponent("Library").appendingPathComponent(p) }
 
+    /// Korunan klasörün kendisi ya da içinde: taramada hiç bakılmaz.
     func isProtected(_ url: URL) -> Bool {
         guard url.isFileURL else { return false }
         let p = url.standardizedFileURL.path
-        return protectedPaths.contains { p == $0 || p.hasPrefix($0 + "/") || $0.hasPrefix(p + "/") }
+        return (protectedPaths + liveProtected()).contains { p == $0 || p.hasPrefix($0 + "/") }
+    }
+
+    /// Korunan bir şeyi içeren klasör de Çöp Kutusu'na gidemez (ör. paket klasörünü taşıyan Belgeler).
+    func touchesProtected(_ url: URL) -> Bool {
+        guard url.isFileURL else { return false }
+        let p = url.standardizedFileURL.path
+        return isProtected(url) || (protectedPaths + liveProtected()).contains { $0.hasPrefix(p + "/") }
     }
 
     // MARK: Bölümler
@@ -75,7 +87,7 @@ struct DiskScanner {
                                     lastUsed: m.lastUsed, added: m.added ?? v?.addedToDirectoryDate ?? v?.creationDate,
                                     useCount: m.useCount, bundleID: id)
                 item.running = id.map(running.contains) ?? false
-                item.protected = isProtected(url) || id?.hasPrefix("com.apple.") == true || Self.isLocked(url)
+                item.protected = touchesProtected(url) || id?.hasPrefix("com.apple.") == true || Self.isLocked(url)
                 out.append(item)
             }
         }
@@ -96,7 +108,7 @@ struct DiskScanner {
                                 lastUsed: m.lastUsed, added: m.added ?? v?.addedToDirectoryDate ?? v?.creationDate,
                                 modified: Self.newestChange(in: url, fallback: v?.contentModificationDate), bundleID: owner)
             item.running = owner.map(running.contains) ?? false
-            item.protected = isProtected(url) || Self.isLocked(url)
+            item.protected = touchesProtected(url) || Self.isLocked(url)
             out.append(item)
         }
         return out
@@ -144,7 +156,7 @@ struct DiskScanner {
         let v = try? url.resourceValues(forKeys: [.contentModificationDateKey])
         var item = DiskItem(url: url, kind: .developer, name: name, size: Self.size(of: url, cancelled: cancelled),
                             modified: Self.newestChange(in: url, fallback: v?.contentModificationDate))
-        item.protected = isProtected(url)
+        item.protected = touchesProtected(url)
         return item
     }
 
@@ -370,7 +382,7 @@ final class DiskCenter: ObservableObject {
         let ok = list.filter { item in
             guard item.canTrash else { refused.append(item.name); return false }
             if item.kind == .apps, let id = item.bundleID, isRunning(id) { refused.append(item.name + " (açık)"); return false }
-            return !scanner.isProtected(item.url)
+            return !scanner.touchesProtected(item.url)
         }
         let docker = ok.filter(\.isDocker)
         let files = ok.filter { !$0.isDocker }

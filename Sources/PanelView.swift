@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum PanelTab: String, CaseIterable, Identifiable {
-    case found = "Bulunanlar", history = "Geçmiş", ports = "Portlar", pomodoro = "Odak", disk = "Disk", island = "Ada", settings = "Ayarlar"
+    case found = "Bulunanlar", history = "Geçmiş", ports = "Portlar", pomodoro = "Odak", disk = "Disk", keys = "Klavye", island = "Ada", settings = "Ayarlar"
     var id: String { rawValue }
 }
 
@@ -27,6 +27,7 @@ struct PanelView: View {
                 case .ports: PortsTab(dev: model.dev)
                 case .pomodoro: PomodoroTab(model: model, pomo: model.pomo)
                 case .disk: DiskTab(disk: model.disk, memory: model.memory)
+                case .keys: KeysTab(keys: model.keys)
                 case .island: IslandTab(island: model.island)
                 case .settings: SettingsTab(model: model)
                 }

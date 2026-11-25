@@ -250,6 +250,8 @@ private struct TransientLeading: View {
             Image(nsImage: RobotArt.appIcon(22)).resizable().frame(width: 20, height: 20)
         case .shelf:
             Image(systemName: "tray.and.arrow.down.fill").foregroundStyle(Color(red: 0.5, green: 0.78, blue: 1))
+        case .keyboard:
+            Image(systemName: "keyboard").foregroundStyle(Color(red: 0.5, green: 0.78, blue: 1))
         case .hole(_, let ok):
             if ok { HoleGlyph(size: 18) } else { Image(systemName: "exclamationmark.circle.fill").foregroundStyle(HealthColors.color(.critical)) }
         }
@@ -278,6 +280,9 @@ private struct TransientTrailing: View {
                 .foregroundStyle(Color(red: 0.55, green: 0.82, blue: 1))
         case .shelf(let n):
             Text("+\(n) rafta").font(.system(size: 12, weight: .semibold, design: .rounded))
+        case .keyboard(let name):
+            Text(name).font(.system(size: 12, weight: .semibold, design: .rounded)).lineLimit(1).truncationMode(.tail)
+                .frame(maxWidth: 160, alignment: .trailing)
         case .hole(let text, _):
             Text(text).font(.system(size: 12, weight: .semibold, design: .rounded)).lineLimit(1).truncationMode(.tail)
                 .frame(maxWidth: 180, alignment: .trailing)

@@ -107,6 +107,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         island = IslandController(manager: model.island)
         model.memory.startTracking()
         model.startHealthWatch()
+        model.keys.onPackChange = { [weak self] name in self?.model.island.show(.keyboard(name), seconds: 2) }
+        model.keys.start()
 
         status = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         status.button?.image = NSImage(systemSymbolName: "circle.circle.fill", accessibilityDescription: AppInfo.name)
@@ -318,6 +320,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 menu.addItem(item)
             }
         }
+        let keys = model.keys
+        let keyItem = NSMenuItem(title: keys.enabled ? (keys.permission ? "Klavye Sesi" : "Klavye Sesi · izin bekliyor") : "Klavye Sesi · kapalı",
+                                 action: nil, keyEquivalent: "")
+        let keyMenu = NSMenu()
+        let onOff = NSMenuItem(title: keys.enabled ? "Klavye Seslerini Kapat" : "Klavye Seslerini Aç", action: #selector(toggleKeys), keyEquivalent: "")
+        onOff.target = self
+        keyMenu.addItem(onOff)
+        keyMenu.addItem(.separator())
+        for (i, p) in keys.packs.enumerated() {
+            let it = NSMenuItem(title: p.name, action: #selector(choosePack(_:)), keyEquivalent: "")
+            it.target = self
+            it.tag = i
+            it.state = p.id == keys.selectedID ? .on : .off
+            keyMenu.addItem(it)
+        }
+        keyItem.submenu = keyMenu
+        menu.addItem(keyItem)
         menu.addItem(.separator())
         add(menu, "Toz Haznesini Aç", #selector(openBox))
         add(menu, model.snowEnabled ? "Karı Durdur" : "Kar Yağdır", #selector(toggleSnow))
@@ -357,6 +376,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     @objc func openBox() { model.openCollection() }
     @objc func toggleIsland() { model.island.settings.enabled.toggle() }
+    @objc func toggleKeys() {
+        model.keys.enabled.toggle()
+        if model.keys.enabled, !model.keys.permission { model.keys.requestPermission() }
+    }
+    @objc func choosePack(_ sender: NSMenuItem) {
+        let list = model.keys.packs
+        guard list.indices.contains(sender.tag) else { return }
+        model.keys.select(list[sender.tag].id)
+    }
     @objc func islandTimer(_ sender: NSMenuItem) { model.island.startTimer(minutes: sender.tag) }
     @objc func islandTimerToggle() { model.island.toggleTimer() }
     @objc func islandTimerCancel() { model.island.cancelTimer() }
@@ -417,6 +445,12 @@ if let i = arguments.firstIndex(of: "--drink-gallery"), i + 1 < arguments.count 
 }
 if let i = arguments.firstIndex(of: "--disk-gallery"), i + 1 < arguments.count {
     exit(MainActor.assumeIsolated { DiskGallery.run(output: arguments[i + 1]) })
+}
+if arguments.contains("--keys-check") {
+    exit(KeysCheck.run())
+}
+if let i = arguments.firstIndex(of: "--keys-report"), i + 1 < arguments.count {
+    exit(KeysReport.run(folder: arguments[i + 1]))
 }
 if arguments.contains("--disk-report") {
     exit(DiskReport.run())
